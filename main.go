@@ -1,86 +1,32 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/google/uuid"
+	"baseweb/security"
+	"github.com/go-redis/redis/v7"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
 
-type AccountStmt struct {
-	FindUserLoginByUsername *sql.Stmt
-}
-
-func InitStmt(db *sql.DB) *AccountStmt {
-	accountStmt := new(AccountStmt)
-
-	stmt, err := db.Prepare(
-		`select id, username, created_at, updated_at 
-        from user_login where username = $1`)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	accountStmt.FindUserLoginByUsername = stmt
-
-	return accountStmt
-}
-
 type Root struct {
-	db          *sql.DB
-	accountStmt *AccountStmt
-}
-
-type UserLogin struct {
-	Id        uuid.UUID
-	Username  string
-	CreatedAt string
-	UpdatedAt string
-}
-
-func findUserLoginByUsername(root *Root,
-	ctx context.Context, username string) (*UserLogin, error) {
-
-	result := new(UserLogin)
-
-	row := root.accountStmt.FindUserLoginByUsername.QueryRowContext(ctx, username)
-	err := row.Scan(&result.Id, &result.Username,
-		&result.CreatedAt, &result.UpdatedAt)
-
-	return result, err
-}
-
-func main() {
-	config := "user=postgres password=1 dbname=baseweb sslmode=disable"
-	db, err := sql.Open("postgres", config)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer db.Close()
-
-	root := new(Root)
-	root.db = db
-	root.accountStmt = InitStmt(db)
-
-	router := mux.NewRouter()
-	router.HandleFunc("/", root.homeHandler)
-
-	http.Handle("/", router)
-	http.ListenAndServe(":8080", nil)
+	db           *sql.DB
+	redisClient  *redis.Client
+	securityRepo *security.Repo
 }
 
 func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
-	user, err := findUserLoginByUsername(root, r.Context(), "admin")
-	if err != nil {
-		log.Println("[ERROR]", err)
+	user := root.securityRepo.FindUserLoginByUsername(r.Context(), "admin")
+	if user == nil {
+		log.Println("[ERROR]", "user not found")
 		w.WriteHeader(404)
 		return
 	}
+
 	log.Println(user)
 
 	bytes, err := json.Marshal(user)
@@ -91,3 +37,28 @@ func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, string(bytes))
 }
 
+func main() {
+	config := "user=postgres password=1 dbname=baseweb sslmode=disable"
+	db, err := sql.Open("postgres", config)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer db.Close()
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		DB:   0,
+	})
+
+	root := &Root{
+		db:           db,
+		redisClient:  redisClient,
+		securityRepo: security.InitRepo(db),
+	}
+
+	router := mux.NewRouter()
+	router.HandleFunc("/", security.Authenticated(root.redisClient, root.securityRepo, root.homeHandler))
+
+	http.Handle("/", router)
+	http.ListenAndServe(":8080", nil)
+}
