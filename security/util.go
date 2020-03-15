@@ -29,7 +29,7 @@ func newSession(redisClient *redis.Client, id uuid.UUID) (string, error) {
 
 	err := redisClient.Set(key, "ok", SESSION_EXPIRATION_TIME).Err()
 	if err != nil {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 	return token, err
 }
@@ -48,10 +48,10 @@ func sessionValid(redisClient *redis.Client,
 		return id, false
 	}
 	if err != nil {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 	if ok != "ok" {
-		log.Fatalln("value not ok")
+		log.Panicln("value not ok")
 	}
 
 	tokens := strings.Split(token, ":")
@@ -131,7 +131,7 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 
 		token, err = newSession(redisClient, user.Id)
 		if err != nil {
-			log.Fatalln(err)
+			log.Panicln(err)
 		}
 		w.Header().Add("X-Auth-Token", token)
 		next(user, permissions)
