@@ -137,3 +137,25 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 		next(user, permissions)
 	}
 }
+
+func Authorized(perm string, handler Handler) Handler {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		permissions := ctx.Value("permissions").([]string)
+
+		authorized := false
+		for _, e := range permissions {
+			if perm == e {
+				authorized = true
+				break
+			}
+		}
+
+		if !authorized {
+			w.WriteHeader(403)
+			return
+		}
+
+		handler(w, r)
+	}
+}

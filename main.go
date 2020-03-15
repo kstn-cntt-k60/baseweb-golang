@@ -37,6 +37,10 @@ func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, string(bytes))
 }
 
+func (root *Root) Authenticated(handler security.Handler) security.Handler {
+	return security.Authenticated(root.redisClient, root.securityRepo, handler)
+}
+
 func main() {
 	config := "user=postgres password=1 dbname=baseweb sslmode=disable"
 	db, err := sql.Open("postgres", config)
@@ -57,7 +61,8 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/", security.Authenticated(root.redisClient, root.securityRepo, root.homeHandler))
+	router.HandleFunc("/", root.Authenticated(
+		security.Authorized("VIEW_EDIT_USER_LOGIN", root.homeHandler)))
 
 	http.Handle("/", router)
 	http.ListenAndServe(":8080", nil)
