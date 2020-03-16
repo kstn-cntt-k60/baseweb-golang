@@ -3,6 +3,7 @@ package security
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -34,18 +35,31 @@ func newSession(redisClient *redis.Client, id uuid.UUID) (string, error) {
 	return token, err
 }
 
+type InvalidSessionError struct {
+}
+
+func (*InvalidSessionError) Error() string {
+	return "invalid session"
+}
+
+var InvalidSession = &InvalidSessionError{}
+
 func sessionValid(redisClient *redis.Client,
-	token string) (uuid.UUID, bool) {
+	token string) (uuid.UUID, error) {
 
 	id := uuid.New()
 	if token == "" {
-		return id, false
+		return id, InvalidSession
 	}
 
 	key := fmt.Sprintf("session:%s", token)
+
 	ok, err := redisClient.Get(key).Result()
 	if err == redis.Nil {
-		return id, false
+		return id, InvalidSession
+	}
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return id, err
 	}
 	if err != nil {
 		log.Panicln(err)
@@ -56,33 +70,37 @@ func sessionValid(redisClient *redis.Client,
 
 	tokens := strings.Split(token, ":")
 	if len(tokens) == 0 {
-		return id, false
+		return id, InvalidSession
 	}
 
 	id, err = uuid.Parse(tokens[0])
 	if err != nil {
-		return id, false
+		return id, InvalidSession
 	}
 
-	return id, true
+	return id, nil
 }
 
 func getUserLoginInfo(ctx context.Context,
-	repo *Repo, id uuid.UUID, valid bool) (UserLogin, []string, bool) {
+	repo *Repo, id uuid.UUID, err error) (UserLogin, []string, error) {
 
 	user := UserLogin{}
 	permissions := make([]string, 0)
-	if !valid {
-		return user, permissions, false
+	if err != nil {
+		return user, permissions, err
 	}
 
-	user, ok := repo.GetUserLogin(ctx, id)
-	if !ok {
-		return user, permissions, false
+	user, err = repo.GetUserLogin(ctx, id)
+	if err != nil {
+		return user, permissions, err
 	}
 
-	permissions = repo.FindPermissionsByUserLoginId(ctx, id)
-	return user, permissions, true
+	permissions, err = repo.FindPermissionsByUserLoginId(ctx, id)
+	if err != nil {
+		return user, permissions, err
+	}
+
+	return user, permissions, nil
 }
 
 type Handler func(http.ResponseWriter, *http.Request)
@@ -101,12 +119,19 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 
 		token := r.Header.Get("X-Auth-Token")
 
-		id, valid := sessionValid(redisClient, token)
-		user, permissions, ok := getUserLoginInfo(ctx, repo, id, valid)
+		id, err := sessionValid(redisClient, token)
+		user, permissions, err := getUserLoginInfo(ctx, repo, id, err)
 
-		if ok {
+		if err == nil {
 			next(user, permissions)
 			return
+		}
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			w.WriteHeader(500)
+			return
+		}
+		if err != InvalidSession && err != sql.ErrNoRows {
+			log.Panicln(err)
 		}
 
 		username, password, ok := r.BasicAuth()
@@ -115,25 +140,31 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 			return
 		}
 
-		user, ok = repo.FindUserLoginByUsername(ctx, username)
-		if !ok {
+		user, err = repo.FindUserLoginByUsername(ctx, username)
+		if err != nil {
 			w.WriteHeader(401)
 			return
 		}
 
-		err := bcrypt.CompareHashAndPassword(
+		err = bcrypt.CompareHashAndPassword(
 			[]byte(user.Password), []byte(password))
 		if err != nil {
 			w.WriteHeader(401)
 			return
 		}
 
-		permissions = repo.FindPermissionsByUserLoginId(ctx, user.Id)
+		permissions, err = repo.FindPermissionsByUserLoginId(ctx, user.Id)
+		if err != nil {
+			w.WriteHeader(401)
+			return
+		}
 
 		token, err = newSession(redisClient, user.Id)
 		if err != nil {
-			log.Panicln(err)
+			w.WriteHeader(401)
+			return
 		}
+
 		w.Header().Add("X-Auth-Token", token)
 		next(user, permissions)
 	}

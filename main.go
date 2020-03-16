@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 
 	"baseweb/security"
+
 	"github.com/go-redis/redis/v7"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
@@ -21,11 +23,18 @@ type Root struct {
 }
 
 func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
-	user, ok := root.securityRepo.FindUserLoginByUsername(r.Context(), "admin")
-	if !ok {
+	user, err := root.securityRepo.FindUserLoginByUsername(r.Context(), "admin")
+	if err == sql.ErrNoRows {
 		log.Println("[ERROR]", "user not found")
 		w.WriteHeader(404)
 		return
+	}
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		w.WriteHeader(404)
+		return
+	}
+	if err != nil {
+		log.Panicln(err)
 	}
 
 	log.Println(user)

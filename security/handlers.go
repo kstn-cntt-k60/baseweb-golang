@@ -1,6 +1,8 @@
 package security
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -21,16 +23,24 @@ func (root *Root) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	userLogin := ctx.Value("userLogin").(UserLogin)
 	permissions := ctx.Value("permissions").([]string)
 
-	user, ok := root.Repo.GetClientUserLogin(ctx, userLogin.Id)
-	if !ok {
+	user, err := root.Repo.GetClientUserLogin(ctx, userLogin.Id)
+	if err == sql.ErrNoRows {
 		log.Panicln("User not found")
 	}
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		w.WriteHeader(500)
+		return
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	response := Response{
 		UserLogin:   user,
 		Permissions: permissions,
 	}
 
-	err := json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -47,9 +57,32 @@ func (root *Root) SecurityPermissionHandler(
 
 	ctx := r.Context()
 
-	groups := root.Repo.GetAllGroup(ctx)
-	permissions := root.Repo.GetAllPermission(ctx)
-	groupPerms := root.Repo.GetAllGroupPermission(ctx)
+	groups, err := root.Repo.GetAllGroup(ctx)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		w.WriteHeader(500)
+		return
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	permissions, err := root.Repo.GetAllPermission(ctx)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		w.WriteHeader(500)
+		return
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	groupPerms, err := root.Repo.GetAllGroupPermission(ctx)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		w.WriteHeader(500)
+		return
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
 
 	response := Response{
 		Groups:           groups,
@@ -57,7 +90,7 @@ func (root *Root) SecurityPermissionHandler(
 		GroupPermissions: groupPerms,
 	}
 
-	err := json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -101,7 +134,15 @@ func (root *Root) SaveGroupPermissonsHandler(
 		}
 	}
 
-	groupPerms := root.Repo.GetAllGroupPermission(ctx)
+	groupPerms, err := root.Repo.GetAllGroupPermission(ctx)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		w.WriteHeader(500)
+		return
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	response := Response{
 		GroupPermissions: groupPerms,
 	}
@@ -138,9 +179,16 @@ func (root *Root) AddSecurityGroupHandler(
 		return
 	}
 
-	group, ok := root.Repo.GetGroup(ctx, id)
-	if !ok {
+	group, err := root.Repo.GetGroup(ctx, id)
+	if err == sql.ErrNoRows {
 		log.Panicln("Group not found")
+	}
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		w.WriteHeader(500)
+		return
+	}
+	if err != nil {
+		log.Panicln(err)
 	}
 
 	response := Response{
