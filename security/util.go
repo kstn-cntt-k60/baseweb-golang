@@ -127,7 +127,7 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 			return
 		}
 		if err == context.Canceled || err == context.DeadlineExceeded {
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if err != InvalidSession && err != sql.ErrNoRows {
@@ -136,32 +136,32 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 
 		username, password, ok := r.BasicAuth()
 		if !ok {
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		user, err = repo.FindUserLoginByUsername(ctx, username)
 		if err != nil {
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		err = bcrypt.CompareHashAndPassword(
 			[]byte(user.Password), []byte(password))
 		if err != nil {
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		permissions, err = repo.FindPermissionsByUserLoginId(ctx, user.Id)
 		if err != nil {
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		token, err = newSession(redisClient, user.Id)
 		if err != nil {
-			w.WriteHeader(401)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
@@ -184,7 +184,7 @@ func Authorized(perm string, handler Handler) Handler {
 		}
 
 		if !authorized {
-			w.WriteHeader(403)
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 

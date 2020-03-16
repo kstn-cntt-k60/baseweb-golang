@@ -1,15 +1,19 @@
 package security
 
 import (
-	"context"
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 )
 
 type Root struct {
-	Repo *Repo
+	repo *Repo
+}
+
+func InitRoot(repo *Repo) *Root {
+	return &Root{
+		repo: repo,
+	}
 }
 
 func (root *Root) LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -23,16 +27,10 @@ func (root *Root) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	userLogin := ctx.Value("userLogin").(UserLogin)
 	permissions := ctx.Value("permissions").([]string)
 
-	user, err := root.Repo.GetClientUserLogin(ctx, userLogin.Id)
-	if err == sql.ErrNoRows {
-		log.Panicln("User not found")
-	}
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(500)
-		return
-	}
+	user, err := root.repo.GetClientUserLogin(ctx, userLogin.Id)
 	if err != nil {
-		log.Panicln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	response := Response{
@@ -57,31 +55,22 @@ func (root *Root) SecurityPermissionHandler(
 
 	ctx := r.Context()
 
-	groups, err := root.Repo.GetAllGroup(ctx)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(500)
-		return
-	}
+	groups, err := root.repo.GetAllGroup(ctx)
 	if err != nil {
-		log.Panicln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
-	permissions, err := root.Repo.GetAllPermission(ctx)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(500)
-		return
-	}
+	permissions, err := root.repo.GetAllPermission(ctx)
 	if err != nil {
-		log.Panicln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
-	groupPerms, err := root.Repo.GetAllGroupPermission(ctx)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(500)
-		return
-	}
+	groupPerms, err := root.repo.GetAllGroupPermission(ctx)
 	if err != nil {
-		log.Panicln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	response := Response{
@@ -114,33 +103,30 @@ func (root *Root) SaveGroupPermissonsHandler(
 	request := Request{}
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	for _, permId := range request.ToBeInserted {
-		err := root.Repo.InsertGroupPermission(ctx, request.GroupId, permId)
+		err := root.repo.InsertGroupPermission(ctx, request.GroupId, permId)
 		if err != nil {
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	}
 
 	for _, permId := range request.ToBeDeleted {
-		err := root.Repo.DeleteGroupPermission(ctx, request.GroupId, permId)
+		err := root.repo.DeleteGroupPermission(ctx, request.GroupId, permId)
 		if err != nil {
-			w.WriteHeader(500)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	}
 
-	groupPerms, err := root.Repo.GetAllGroupPermission(ctx)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(500)
-		return
-	}
+	groupPerms, err := root.repo.GetAllGroupPermission(ctx)
 	if err != nil {
-		log.Panicln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	response := Response{
@@ -169,26 +155,20 @@ func (root *Root) AddSecurityGroupHandler(
 	request := Request{}
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	id, err := root.Repo.InsertGroup(ctx, request.Name)
+	id, err := root.repo.InsertGroup(ctx, request.Name)
 	if err != nil {
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	group, err := root.Repo.GetGroup(ctx, id)
-	if err == sql.ErrNoRows {
-		log.Panicln("Group not found")
-	}
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(500)
-		return
-	}
+	group, err := root.repo.GetGroup(ctx, id)
 	if err != nil {
-		log.Panicln(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	response := Response{

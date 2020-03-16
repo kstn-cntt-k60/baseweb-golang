@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 
+	"baseweb/account"
 	"baseweb/security"
 
 	"github.com/go-redis/redis/v7"
@@ -20,17 +21,19 @@ type Root struct {
 	redisClient  *redis.Client
 	securityRepo *security.Repo
 	security     *security.Root
+	accountRepo  *account.Repo
+	account      *account.Root
 }
 
 func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := root.securityRepo.FindUserLoginByUsername(r.Context(), "admin")
 	if err == sql.ErrNoRows {
 		log.Println("[ERROR]", "user not found")
-		w.WriteHeader(404)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(404)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if err != nil {
@@ -65,11 +68,15 @@ func main() {
 	})
 
 	securityRepo := security.InitRepo(db)
+	accountRepo := account.InitRepo(db)
+
 	root := &Root{
 		db:           db,
 		redisClient:  redisClient,
 		securityRepo: securityRepo,
-		security:     &security.Root{Repo: securityRepo},
+		security:     security.InitRoot(securityRepo),
+		accountRepo:  accountRepo,
+		account:      account.InitRoot(accountRepo),
 	}
 
 	router := mux.NewRouter()
@@ -96,9 +103,15 @@ func main() {
 			security.Authorized("VIEW_EDIT_SECURITY_GROUP",
 				root.security.AddSecurityGroupHandler))).Methods("POST")
 
+	router.HandleFunc("/api/account/add-party",
+		root.Authenticated(
+			security.Authorized("VIEW_EDIT_PARTY",
+				root.account.AddPartyHandler))).Methods("POST")
+
 	http.Handle("/", router)
 
-	http.ListenAndServe(":8080", http.HandlerFunc(applyJson(http.DefaultServeMux)))
+	err = http.ListenAndServe(":8080", http.HandlerFunc(applyJson(http.DefaultServeMux)))
+	log.Fatalln(err)
 }
 
 func applyJson(handler http.Handler) func(http.ResponseWriter, *http.Request) {
