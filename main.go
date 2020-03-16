@@ -21,8 +21,8 @@ type Root struct {
 }
 
 func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
-	user := root.securityRepo.FindUserLoginByUsername(r.Context(), "admin")
-	if user == nil {
+	user, ok := root.securityRepo.FindUserLoginByUsername(r.Context(), "admin")
+	if !ok {
 		log.Println("[ERROR]", "user not found")
 		w.WriteHeader(404)
 		return

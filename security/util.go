@@ -68,20 +68,21 @@ func sessionValid(redisClient *redis.Client,
 }
 
 func getUserLoginInfo(ctx context.Context,
-	repo *Repo, id uuid.UUID, valid bool) (*UserLogin, []string) {
+	repo *Repo, id uuid.UUID, valid bool) (UserLogin, []string, bool) {
 
+	user := UserLogin{}
 	permissions := make([]string, 0)
 	if !valid {
-		return nil, permissions
+		return user, permissions, false
 	}
 
-	user := repo.GetUserLogin(ctx, id)
-	if user == nil {
-		return nil, permissions
+	user, ok := repo.GetUserLogin(ctx, id)
+	if !ok {
+		return user, permissions, false
 	}
 
 	permissions = repo.FindPermissionsByUserLoginId(ctx, id)
-	return user, permissions
+	return user, permissions, true
 }
 
 type Handler func(http.ResponseWriter, *http.Request)
@@ -91,19 +92,19 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 		ctx := r.Context()
 		redisClient = redisClient.WithContext(ctx)
 
-		token := r.Header.Get("X-Auth-Token")
-
-		id, valid := sessionValid(redisClient, token)
-		user, permissions := getUserLoginInfo(ctx, repo, id, valid)
-
-		next := func(user *UserLogin, permissions []string) {
+		next := func(user UserLogin, permissions []string) {
 			ctx = context.WithValue(ctx, "userLogin", user)
 			ctx = context.WithValue(ctx, "permissions", permissions)
 			r = r.WithContext(ctx)
 			handler(w, r)
 		}
 
-		if user != nil {
+		token := r.Header.Get("X-Auth-Token")
+
+		id, valid := sessionValid(redisClient, token)
+		user, permissions, ok := getUserLoginInfo(ctx, repo, id, valid)
+
+		if ok {
 			next(user, permissions)
 			return
 		}
@@ -114,8 +115,8 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 			return
 		}
 
-		user = repo.FindUserLoginByUsername(ctx, username)
-		if user == nil {
+		user, ok = repo.FindUserLoginByUsername(ctx, username)
+		if !ok {
 			w.WriteHeader(401)
 			return
 		}

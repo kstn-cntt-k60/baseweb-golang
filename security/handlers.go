@@ -12,17 +12,20 @@ type Root struct {
 
 func (root *Root) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	type Response struct {
-		UserLogin   *ClientUserLogin `json:"userLogin"`
-		Permissions []string         `json:"securityPermissions"`
+		UserLogin   ClientUserLogin `json:"userLogin"`
+		Permissions []string        `json:"securityPermissions"`
 	}
 
 	ctx := r.Context()
 
-	userLogin := ctx.Value("userLogin").(*UserLogin)
+	userLogin := ctx.Value("userLogin").(UserLogin)
 	permissions := ctx.Value("permissions").([]string)
 
-	user := root.Repo.GetClientUserLogin(ctx, userLogin.Id)
-	response := &Response{
+	user, ok := root.Repo.GetClientUserLogin(ctx, userLogin.Id)
+	if !ok {
+		log.Panicln("User not found")
+	}
+	response := Response{
 		UserLogin:   user,
 		Permissions: permissions,
 	}
@@ -37,9 +40,9 @@ func (root *Root) SecurityPermissionHandler(
 	w http.ResponseWriter, r *http.Request) {
 
 	type Response struct {
-		Groups           []*Group           `json:"securityGroups"`
-		Permissions      []*Permission      `json:"securityPermissions"`
-		GroupPermissions []*GroupPermission `json:"securityGroupPermissions"`
+		Groups           []Group           `json:"securityGroups"`
+		Permissions      []Permission      `json:"securityPermissions"`
+		GroupPermissions []GroupPermission `json:"securityGroupPermissions"`
 	}
 
 	ctx := r.Context()
@@ -48,7 +51,7 @@ func (root *Root) SecurityPermissionHandler(
 	permissions := root.Repo.GetAllPermission(ctx)
 	groupPerms := root.Repo.GetAllGroupPermission(ctx)
 
-	response := &Response{
+	response := Response{
 		Groups:           groups,
 		Permissions:      permissions,
 		GroupPermissions: groupPerms,
@@ -70,13 +73,13 @@ func (root *Root) SaveGroupPermissonsHandler(
 	}
 
 	type Response struct {
-		GroupPermissions []*GroupPermission `json:"securityGroupPermissions"`
+		GroupPermissions []GroupPermission `json:"securityGroupPermissions"`
 	}
 
 	ctx := r.Context()
 
-	request := &Request{}
-	err := json.NewDecoder(r.Body).Decode(request)
+	request := Request{}
+	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		w.WriteHeader(500)
 		return
@@ -99,7 +102,7 @@ func (root *Root) SaveGroupPermissonsHandler(
 	}
 
 	groupPerms := root.Repo.GetAllGroupPermission(ctx)
-	response := &Response{
+	response := Response{
 		GroupPermissions: groupPerms,
 	}
 
@@ -117,13 +120,13 @@ func (root *Root) AddSecurityGroupHandler(
 	}
 
 	type Response struct {
-		Group *Group `json:"securityGroup"`
+		Group Group `json:"securityGroup"`
 	}
 
 	ctx := r.Context()
 
-	request := &Request{}
-	err := json.NewDecoder(r.Body).Decode(request)
+	request := Request{}
+	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		w.WriteHeader(500)
 		return
@@ -135,9 +138,12 @@ func (root *Root) AddSecurityGroupHandler(
 		return
 	}
 
-	group := root.Repo.GetGroup(ctx, id)
+	group, ok := root.Repo.GetGroup(ctx, id)
+	if !ok {
+		log.Panicln("Group not found")
+	}
 
-	response := &Response{
+	response := Response{
 		Group: group,
 	}
 
@@ -145,5 +151,4 @@ func (root *Root) AddSecurityGroupHandler(
 	if err != nil {
 		log.Panicln(err)
 	}
-
 }

@@ -8,6 +8,5 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/lib/pq v1.3.0
-	github.com/vmihailenco/msgpack/v4 v4.3.9
 	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 )

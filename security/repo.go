@@ -81,22 +81,22 @@ func InitRepo(db *sql.DB) *Repo {
 }
 
 func (repo *Repo) FindUserLoginByUsername(
-	ctx context.Context, username string) *UserLogin {
+	ctx context.Context, username string) (UserLogin, bool) {
 
 	defer log.Printf("FindUserLoginByUsername %s\n", username)
 
 	row := repo.findUserLoginByUsername.QueryRowContext(ctx, username)
 
-	user := &UserLogin{}
+	user := UserLogin{}
 	err := row.Scan(&user.Id, &user.Username, &user.Password)
 	if err == sql.ErrNoRows {
-		return nil
+		return user, false
 	}
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	return user
+	return user, true
 }
 
 func (repo *Repo) FindPermissionsByUserLoginId(
@@ -122,40 +122,40 @@ func (repo *Repo) FindPermissionsByUserLoginId(
 	return result
 }
 
-func (repo *Repo) GetUserLogin(ctx context.Context, id uuid.UUID) *UserLogin {
+func (repo *Repo) GetUserLogin(ctx context.Context, id uuid.UUID) (UserLogin, bool) {
 	defer log.Printf("GetUserLogin %s\n", id)
 
 	row := repo.getUserLogin.QueryRowContext(ctx, id)
-	user := &UserLogin{}
+	user := UserLogin{}
 	err := row.Scan(&user.Id, &user.Username, &user.Password)
 	if err == sql.ErrNoRows {
-		return nil
+		return user, false
 	}
 	if err != nil {
 		log.Panicln(err)
 	}
-	return user
+	return user, true
 }
 
 func (repo *Repo) GetClientUserLogin(
-	ctx context.Context, id uuid.UUID) *ClientUserLogin {
+	ctx context.Context, id uuid.UUID) (ClientUserLogin, bool) {
 
 	defer log.Printf("GetClientUserLogin %s\n", id)
 
 	row := repo.getClientUserLogin.QueryRowContext(ctx, id)
-	user := &ClientUserLogin{}
+	user := ClientUserLogin{}
 	err := row.Scan(&user.Id, &user.Username, &user.CreatedAt, &user.UpdatedAt)
 	if err == sql.ErrNoRows {
-		return nil
+		return user, false
 	}
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	return user
+	return user, true
 }
 
-func (repo *Repo) GetAllGroup(ctx context.Context) (result []*Group) {
+func (repo *Repo) GetAllGroup(ctx context.Context) (result []Group) {
 	defer log.Println("GetAllGroup")
 
 	rows, err := repo.getAllGroup.QueryContext(ctx)
@@ -164,7 +164,7 @@ func (repo *Repo) GetAllGroup(ctx context.Context) (result []*Group) {
 	}
 
 	for rows.Next() {
-		group := &Group{}
+		group := Group{}
 		err := rows.Scan(&group.Id, &group.Name, &group.CreatedAt)
 		if err != nil {
 			log.Panicln(err)
@@ -174,7 +174,7 @@ func (repo *Repo) GetAllGroup(ctx context.Context) (result []*Group) {
 	return
 }
 
-func (repo *Repo) GetAllPermission(ctx context.Context) (result []*Permission) {
+func (repo *Repo) GetAllPermission(ctx context.Context) (result []Permission) {
 	defer log.Println("GetAllPermission")
 
 	rows, err := repo.getAllPermission.QueryContext(ctx)
@@ -183,7 +183,7 @@ func (repo *Repo) GetAllPermission(ctx context.Context) (result []*Permission) {
 	}
 
 	for rows.Next() {
-		perm := &Permission{}
+		perm := Permission{}
 		err := rows.Scan(&perm.Id, &perm.Name, &perm.CreatedAt)
 		if err != nil {
 			log.Panicln(err)
@@ -193,7 +193,7 @@ func (repo *Repo) GetAllPermission(ctx context.Context) (result []*Permission) {
 	return
 }
 
-func (repo *Repo) GetAllGroupPermission(ctx context.Context) (result []*GroupPermission) {
+func (repo *Repo) GetAllGroupPermission(ctx context.Context) (result []GroupPermission) {
 	defer log.Println("GetAllGroupPermission")
 
 	rows, err := repo.getAllGroupPermission.QueryContext(ctx)
@@ -202,7 +202,7 @@ func (repo *Repo) GetAllGroupPermission(ctx context.Context) (result []*GroupPer
 	}
 
 	for rows.Next() {
-		gp := &GroupPermission{}
+		gp := GroupPermission{}
 		err := rows.Scan(&gp.Id.GroupId, &gp.Id.PermissionId, &gp.CreatedAt)
 		if err != nil {
 			log.Panicln(err)
@@ -256,21 +256,21 @@ func (repo *Repo) InsertGroup(ctx context.Context, name string) (int16, error) {
 	return maxId + 1, err
 }
 
-func (repo *Repo) GetGroup(ctx context.Context, id int16) *Group {
+func (repo *Repo) GetGroup(ctx context.Context, id int16) (Group, bool) {
 	defer log.Println("GetGroup", id)
 
 	row := repo.db.QueryRowContext(ctx,
 		`select id, name, created_at
         from security_group where id = $1`, id)
 
-	group := &Group{}
+	group := Group{}
 	err := row.Scan(&group.Id, &group.Name, &group.CreatedAt)
 	if err == sql.ErrNoRows {
-		return nil
+		return group, false
 	}
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	return group
+	return group, true
 }
