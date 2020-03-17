@@ -10,9 +10,11 @@ import (
 )
 
 type Repo struct {
-	db          *sql.DB
-	countPerson *sql.Stmt
-	viewPerson  *sql.Stmt
+	db            *sql.DB
+	countPerson   *sql.Stmt
+	viewPerson    *sql.Stmt
+	countCustomer *sql.Stmt
+	viewCustomer  *sql.Stmt
 }
 
 func InitRepo(db *sql.DB) *Repo {
@@ -35,10 +37,30 @@ func InitRepo(db *sql.DB) *Repo {
 		log.Panicln(err)
 	}
 
+	countCustomer, err := db.Prepare(
+		`select count(*) from customer`)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	viewCustomer, err := db.Prepare(
+		`select c.id, c.name,
+        c.created_at, c.updated_at,
+        p.description
+        from customer c
+        inner join party p on p.id = c.id
+        order by c.created_at desc
+        limit $1 offset $2`)
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	return &Repo{
-		db:          db,
-		countPerson: countPerson,
-		viewPerson:  viewPerson,
+		db:            db,
+		countPerson:   countPerson,
+		viewPerson:    viewPerson,
+		countCustomer: countCustomer,
+		viewCustomer:  viewCustomer,
 	}
 }
 
@@ -245,6 +267,68 @@ func (repo *Repo) ViewPerson(ctx context.Context,
 		}
 
 		result = append(result, p)
+	}
+
+	return count, result, nil
+}
+
+func (repo *Repo) ViewCustomer(ctx context.Context,
+	page uint, pageSize uint,
+	sortedBy, sortOrder string) (uint, []ClientCustomer, error) {
+
+	log.Println("ViewCustomer", page, pageSize)
+
+	var count uint = 0
+	result := make([]ClientCustomer, 0)
+
+	row := repo.countCustomer.QueryRowContext(ctx)
+	err := row.Scan(&count)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return count, result, err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	var rows *sql.Rows
+	if sortedBy == "created_at" && sortOrder == "desc" {
+		rows, err = repo.viewCustomer.QueryContext(
+			ctx, pageSize, page*pageSize)
+	} else {
+		query := fmt.Sprintf(
+			`select c.id, c.name,
+            c.created_at, c.updated_at,
+            p.description
+            from customer c
+            inner join party p on p.id = c.id
+            order by c.%s %s
+            limit $1 offset $2`,
+			sortedBy, sortOrder)
+
+		log.Println("[SQL]", query)
+
+		rows, err = repo.db.QueryContext(
+			ctx, query, pageSize, page*pageSize)
+	}
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return count, result, err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	for rows.Next() {
+		c := ClientCustomer{}
+		err = rows.Scan(&c.Id, &c.Name,
+			&c.CreatedAt, &c.UpdatedAt, &c.Description)
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			return count, result, err
+		}
+		if err != nil {
+			log.Panicln(err)
+		}
+
+		result = append(result, c)
 	}
 
 	return count, result, nil

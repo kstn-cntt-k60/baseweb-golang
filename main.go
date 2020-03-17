@@ -113,6 +113,11 @@ func main() {
 			security.Authorized("VIEW_EDIT_PARTY",
 				root.account.ViewPersonHandler))).Methods("GET")
 
+	router.HandleFunc("/api/account/view-customer",
+		root.Authenticated(
+			security.Authorized("VIEW_EDIT_PARTY",
+				root.account.ViewCustomerHandler))).Methods("GET")
+
 	http.Handle("/", router)
 
 	err = http.ListenAndServe(":8080", http.HandlerFunc(applyJson(http.DefaultServeMux)))

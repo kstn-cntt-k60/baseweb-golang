@@ -204,6 +204,8 @@ func (root *Root) ViewPersonHandler(
 		sortedBy = "created_at"
 	} else if sortedByQuery == "updatedAt" {
 		sortedBy = "updated_at"
+	} else if sortedByQuery == "birthDate" {
+		sortedBy = "birth_date"
 	}
 
 	sortOrderQuery := queries.Get("sortOrder")
@@ -213,8 +215,6 @@ func (root *Root) ViewPersonHandler(
 	} else if sortOrderQuery == "asc" {
 		sortOrder = "asc"
 	}
-
-	log.Println(page, pageSize)
 
 	count, personList, err := root.repo.ViewPerson(
 		ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
@@ -231,6 +231,66 @@ func (root *Root) ViewPersonHandler(
 	response := Response{
 		Count:      count,
 		PersonList: personList,
+	}
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Panicln(err)
+	}
+}
+
+func (root *Root) ViewCustomerHandler(
+	w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+	var err error
+
+	queries := r.URL.Query()
+
+	var page int
+	page, err = strconv.Atoi(queries.Get("page"))
+	if err != nil {
+		page = 0
+	}
+
+	var pageSize int
+	pageSize, err = strconv.Atoi(queries.Get("pageSize"))
+	if err != nil {
+		pageSize = 10
+	}
+
+	sortedByQuery := queries.Get("sortedBy")
+	sortedBy := "created_at"
+	if sortedByQuery == "name" {
+		sortedBy = "name"
+	} else if sortedByQuery == "createdAt" {
+		sortedBy = "created_at"
+	} else if sortedByQuery == "updatedAt" {
+		sortedBy = "updated_at"
+	}
+
+	sortOrderQuery := queries.Get("sortOrder")
+	sortOrder := "desc"
+	if sortOrderQuery == "desc" {
+		sortOrder = "desc"
+	} else if sortOrderQuery == "asc" {
+		sortOrder = "asc"
+	}
+
+	count, customerList, err := root.repo.ViewCustomer(
+		ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	type Response struct {
+		Count        uint             `json:"count"`
+		CustomerList []ClientCustomer `json:"customerList"`
+	}
+
+	response := Response{
+		Count:        count,
+		CustomerList: customerList,
 	}
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {

@@ -45,3 +45,11 @@ type ClientPerson struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 	Description string    `json:"description"`
 }
+
+type ClientCustomer struct {
+	Id          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+	Description string    `json:"description"`
+}
