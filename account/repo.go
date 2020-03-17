@@ -3,18 +3,42 @@ package account
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 
 	"github.com/google/uuid"
 )
 
 type Repo struct {
-	db *sql.DB
+	db          *sql.DB
+	countPerson *sql.Stmt
+	viewPerson  *sql.Stmt
 }
 
 func InitRepo(db *sql.DB) *Repo {
+	countPerson, err := db.Prepare(`select count(*) from person`)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	viewPerson, err := db.Prepare(
+		`select person.id, 
+        person.first_name, person.middle_name, person.last_name,
+        person.gender_id, person.birth_date,
+        person.created_at, person.updated_at,
+        party.description
+        from person
+        inner join party on party.id = person.id
+        order by person.created_at desc
+        limit $1 offset $2`)
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	return &Repo{
-		db: db,
+		db:          db,
+		countPerson: countPerson,
+		viewPerson:  viewPerson,
 	}
 }
 
@@ -40,7 +64,6 @@ func (repo *Repo) InsertParty(ctx context.Context,
 		return id, err
 	}
 	if err != nil {
-		tx.Rollback()
 		log.Panicln(err)
 	}
 
@@ -66,7 +89,6 @@ func (repo *Repo) InsertPerson(ctx context.Context,
 		return err
 	}
 	if err != nil {
-		tx.Rollback()
 		log.Panicln(err)
 	}
 
@@ -85,7 +107,6 @@ func (repo *Repo) InsertCustomer(ctx context.Context,
 		return err
 	}
 	if err != nil {
-		tx.Rollback()
 		log.Panicln(err)
 	}
 
@@ -162,4 +183,69 @@ func (repo *Repo) GetCustomer(ctx context.Context,
 	}
 
 	return c, nil
+}
+
+func (repo *Repo) ViewPerson(ctx context.Context,
+	page uint, pageSize uint,
+	sortedBy, sortOrder string) (uint, []ClientPerson, error) {
+
+	log.Println("ViewPerson", page, pageSize)
+
+	var count uint = 0
+	result := make([]ClientPerson, 0)
+
+	row := repo.countPerson.QueryRowContext(ctx)
+	err := row.Scan(&count)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return count, result, err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	var rows *sql.Rows
+	if sortedBy == "created_at" && sortOrder == "desc" {
+		rows, err = repo.viewPerson.QueryContext(
+			ctx, pageSize, page*pageSize)
+	} else {
+		query := fmt.Sprintf(`select person.id, 
+                person.first_name, person.middle_name, person.last_name,
+                person.gender_id, person.birth_date,
+                person.created_at, person.updated_at,
+                party.description
+                from person
+                inner join party on party.id = person.id
+                order by person.%s %s
+                limit $1 offset $2`, sortedBy, sortOrder)
+
+		log.Println("[SQL]", query)
+
+		rows, err = repo.db.QueryContext(
+			ctx, query, pageSize, page*pageSize)
+	}
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return count, result, err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	for rows.Next() {
+		p := ClientPerson{}
+		err = rows.Scan(&p.Id,
+			&p.FirstName, &p.MiddleName, &p.LastName,
+			&p.GenderId, &p.BirthDate,
+			&p.CreatedAt, &p.UpdatedAt,
+			&p.Description)
+		if err == context.Canceled || err == context.DeadlineExceeded {
+			return count, result, err
+		}
+		if err != nil {
+			log.Panicln(err)
+		}
+
+		result = append(result, p)
+	}
+
+	return count, result, nil
 }

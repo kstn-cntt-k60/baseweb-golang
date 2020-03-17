@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"baseweb/security"
 
@@ -43,7 +44,6 @@ func (root *Root) addPersonHandler(w http.ResponseWriter,
 		request.LastName, request.GenderId, request.BirthDate)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		tx.Rollback()
 		return
 	}
 
@@ -92,7 +92,6 @@ func (root *Root) addCustomerHandler(w http.ResponseWriter,
 	err := root.repo.InsertCustomer(ctx, tx, id, request.CustomerName)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		tx.Rollback()
 		return
 	}
 
@@ -149,20 +148,18 @@ func (root *Root) AddPartyHandler(
 
 	tx, err := root.repo.db.BeginTx(ctx, nil)
 	if err == context.Canceled || err == context.DeadlineExceeded {
-		tx.Rollback()
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if err != nil {
-		tx.Rollback()
 		log.Panicln(err)
 	}
+	defer tx.Rollback()
 
 	id, err := root.repo.InsertParty(ctx, tx,
 		request.PartyTypeId, request.Description, userLogin.Id)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		tx.Rollback()
 		return
 	}
 
@@ -177,4 +174,66 @@ func (root *Root) AddPartyHandler(
 
 	log.Println("[ERROR]", "PartyTypeId not supported")
 	w.WriteHeader(http.StatusInternalServerError)
+}
+
+func (root *Root) ViewPersonHandler(
+	w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+	var err error
+
+	queries := r.URL.Query()
+
+	var page int
+	page, err = strconv.Atoi(queries.Get("page"))
+	if err != nil {
+		page = 0
+	}
+
+	var pageSize int
+	pageSize, err = strconv.Atoi(queries.Get("pageSize"))
+	if err != nil {
+		pageSize = 10
+	}
+
+	sortedByQuery := queries.Get("sortedBy")
+	sortedBy := "created_at"
+	if sortedByQuery == "firstName" {
+		sortedBy = "first_name"
+	} else if sortedByQuery == "createdAt" {
+		sortedBy = "created_at"
+	} else if sortedByQuery == "updatedAt" {
+		sortedBy = "updated_at"
+	}
+
+	sortOrderQuery := queries.Get("sortOrder")
+	sortOrder := "desc"
+	if sortOrderQuery == "desc" {
+		sortOrder = "desc"
+	} else if sortOrderQuery == "asc" {
+		sortOrder = "asc"
+	}
+
+	log.Println(page, pageSize)
+
+	count, personList, err := root.repo.ViewPerson(
+		ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	type Response struct {
+		Count      uint           `json:"count"`
+		PersonList []ClientPerson `json:"personList"`
+	}
+
+	response := Response{
+		Count:      count,
+		PersonList: personList,
+	}
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Panicln(err)
+	}
 }
