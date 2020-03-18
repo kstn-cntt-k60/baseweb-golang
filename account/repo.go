@@ -407,3 +407,73 @@ func (repo *Repo) DeletePerson(ctx context.Context, id uuid.UUID) error {
 
 	return nil
 }
+
+func (repo *Repo) UpdateCustomer(
+	ctx context.Context,
+	id uuid.UUID, description string, name string) error {
+
+	log.Println("UpdateCustomer", id, description, name)
+
+	_, err := repo.db.ExecContext(ctx,
+		`update customer
+        set description = $2, name = $3
+        where id = $1`,
+		id, description, name)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	_, err = repo.db.ExecContext(ctx,
+		`update party set description = $2 where id = $1`,
+		id, description)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	return nil
+}
+
+func (repo *Repo) DeleteCustomer(ctx context.Context, id uuid.UUID) error {
+	log.Println("DeleteCustomer", id)
+
+	tx, err := repo.db.BeginTx(ctx, nil)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec("delete from customer where id = $1", id)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	_, err = tx.Exec("delete from party where id = $1", id)
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	err = tx.Commit()
+	if err == context.Canceled || err == context.DeadlineExceeded {
+		return err
+	}
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	return nil
+}
