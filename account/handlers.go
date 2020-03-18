@@ -297,3 +297,87 @@ func (root *Root) ViewCustomerHandler(
 		log.Panicln(err)
 	}
 }
+
+func (root *Root) UpdatePersonHandler(
+	w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	type Request struct {
+		Id          uuid.UUID `json:"id"`
+		FirstName   string    `json:"firstName"`
+		MiddleName  string    `json:"middleName"`
+		LastName    string    `json:"lastName"`
+		BirthDate   string    `json:"birthDate"`
+		GenderId    int16     `json:"genderId"`
+		Description string    `json:"description"`
+	}
+
+	req := Request{}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = root.repo.UpdatePerson(ctx,
+		req.Id, req.FirstName, req.MiddleName, req.LastName,
+		req.GenderId, req.BirthDate, req.Description)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	type Response struct {
+		Status string `json:"status"`
+	}
+
+	res := Response{
+		Status: "ok",
+	}
+
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		log.Panicln(err)
+		return
+	}
+}
+
+func (root *Root) DeletePersonHandler(
+	w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	type Request struct {
+		Id uuid.UUID `json:"id"`
+	}
+
+	req := Request{}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	err = root.repo.DeletePerson(ctx, req.Id)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	type Response struct {
+		Status string `json:"status"`
+	}
+
+	res := Response{
+		Status: "ok",
+	}
+
+	err = json.NewEncoder(w).Encode(res)
+	if err != nil {
+		log.Panicln(err)
+		return
+	}
+}

@@ -118,6 +118,16 @@ func main() {
 			security.Authorized("VIEW_EDIT_PARTY",
 				root.account.ViewCustomerHandler))).Methods("GET")
 
+	router.HandleFunc("/api/account/update-person",
+		root.Authenticated(
+			security.Authorized("VIEW_EDIT_PARTY",
+				root.account.UpdatePersonHandler))).Methods("POST")
+
+	router.HandleFunc("/api/account/delete-person",
+		root.Authenticated(
+			security.Authorized("VIEW_EDIT_PARTY",
+				root.account.DeletePersonHandler))).Methods("POST")
+
 	http.Handle("/", router)
 
 	err = http.ListenAndServe(":8080", http.HandlerFunc(applyJson(http.DefaultServeMux)))
