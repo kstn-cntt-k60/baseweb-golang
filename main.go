@@ -17,12 +17,39 @@ import (
 )
 
 type Root struct {
+	router       *mux.Router
 	db           *sql.DB
 	redisClient  *redis.Client
 	securityRepo *security.Repo
 	security     *security.Root
 	accountRepo  *account.Repo
 	account      *account.Root
+}
+
+func (root *Root) Authenticated(handler security.Handler) security.Handler {
+	return security.Authenticated(root.redisClient, root.securityRepo, handler)
+}
+
+func (root *Root) GetAuthenticated(url string, handler security.Handler) {
+	root.router.HandleFunc(url, root.Authenticated(handler)).Methods("GET")
+}
+
+func (root *Root) PostAuthenticated(url string, handler security.Handler) {
+	root.router.HandleFunc(url, root.Authenticated(handler)).Methods("POST")
+}
+
+func (root *Root) GetAuthorized(url string,
+	perm string, handler security.Handler) {
+	root.router.HandleFunc(url,
+		root.Authenticated(
+			security.Authorized(perm, handler))).Methods("GET")
+}
+
+func (root *Root) PostAuthorized(url string, perm string,
+	handler security.Handler) {
+	root.router.HandleFunc(url,
+		root.Authenticated(
+			security.Authorized(perm, handler))).Methods("POST")
 }
 
 func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
@@ -50,10 +77,6 @@ func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, string(bytes))
 }
 
-func (root *Root) Authenticated(handler security.Handler) security.Handler {
-	return security.Authenticated(root.redisClient, root.securityRepo, handler)
-}
-
 func main() {
 	config := "user=postgres password=1 dbname=baseweb sslmode=disable"
 	db, err := sql.Open("postgres", config)
@@ -70,7 +93,10 @@ func main() {
 	securityRepo := security.InitRepo(db)
 	accountRepo := account.InitRepo(db)
 
+	router := mux.NewRouter()
+
 	root := &Root{
+		router:       router,
 		db:           db,
 		redisClient:  redisClient,
 		securityRepo: securityRepo,
@@ -79,64 +105,58 @@ func main() {
 		account:      account.InitRoot(accountRepo),
 	}
 
-	router := mux.NewRouter()
+	root.GetAuthorized("/", "VIEW_EDIT_USER_LOGIN", root.homeHandler)
+	root.PostAuthenticated("/api/login", root.security.LoginHandler)
 
-	router.HandleFunc("/", root.Authenticated(
-		security.Authorized(
-			"VIEW_EDIT_USER_LOGIN", root.homeHandler))).Methods("GET")
+	root.GetAuthorized(
+		"/api/security/permission",
+		"VIEW_EDIT_SECURITY_PERMISSION",
+		root.security.SecurityPermissionHandler)
 
-	router.HandleFunc("/api/login",
-		root.Authenticated(root.security.LoginHandler)).Methods("POST")
+	root.PostAuthorized(
+		"/api/security/save-group-permissions",
+		"VIEW_EDIT_SECURITY_PERMISSION",
+		root.security.SaveGroupPermissonsHandler)
 
-	router.HandleFunc("/api/security/permission",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_SECURITY_PERMISSION",
-				root.security.SecurityPermissionHandler))).Methods("GET")
+	root.PostAuthorized(
+		"/api/security/add-security-group",
+		"VIEW_EDIT_SECURITY_GROUP",
+		root.security.AddSecurityGroupHandler)
 
-	router.HandleFunc("/api/security/save-group-permissions",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_SECURITY_PERMISSION",
-				root.security.SaveGroupPermissonsHandler))).Methods("POST")
+	root.PostAuthorized(
+		"/api/account/add-party",
+		"VIEW_EDIT_PARTY",
+		root.account.AddPartyHandler)
 
-	router.HandleFunc("/api/security/add-security-group",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_SECURITY_GROUP",
-				root.security.AddSecurityGroupHandler))).Methods("POST")
+	root.GetAuthorized(
+		"/api/account/view-person",
+		"VIEW_EDIT_PARTY",
+		root.account.ViewPersonHandler)
 
-	router.HandleFunc("/api/account/add-party",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_PARTY",
-				root.account.AddPartyHandler))).Methods("POST")
+	root.GetAuthorized(
+		"/api/account/view-customer",
+		"VIEW_EDIT_PARTY",
+		root.account.ViewCustomerHandler)
 
-	router.HandleFunc("/api/account/view-person",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_PARTY",
-				root.account.ViewPersonHandler))).Methods("GET")
+	root.PostAuthorized(
+		"/api/account/update-person",
+		"VIEW_EDIT_PARTY",
+		root.account.UpdatePersonHandler)
 
-	router.HandleFunc("/api/account/view-customer",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_PARTY",
-				root.account.ViewCustomerHandler))).Methods("GET")
+	root.PostAuthorized(
+		"/api/account/delete-person",
+		"VIEW_EDIT_PARTY",
+		root.account.DeletePersonHandler)
 
-	router.HandleFunc("/api/account/update-person",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_PARTY",
-				root.account.UpdatePersonHandler))).Methods("POST")
+	root.PostAuthorized(
+		"/api/account/update-customer",
+		"VIEW_EDIT_PARTY",
+		root.account.UpdateCustomerHandler)
 
-	router.HandleFunc("/api/account/delete-person",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_PARTY",
-				root.account.DeletePersonHandler))).Methods("POST")
-
-	router.HandleFunc("/api/account/update-customer",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_PARTY",
-				root.account.UpdateCustomerHandler))).Methods("POST")
-
-	router.HandleFunc("/api/account/delete-customer",
-		root.Authenticated(
-			security.Authorized("VIEW_EDIT_PARTY",
-				root.account.DeleteCustomerHandler))).Methods("POST")
+	root.PostAuthorized(
+		"/api/account/delete-customer",
+		"VIEW_EDIT_PARTY",
+		root.account.DeleteCustomerHandler)
 
 	http.Handle("/", router)
 
