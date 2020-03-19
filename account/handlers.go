@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"log"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -37,23 +37,18 @@ type AddPartyRequest struct {
 func (root *Root) addPersonHandler(w http.ResponseWriter,
 	ctx context.Context,
 	tx *sql.Tx,
-	request AddPartyRequest, id uuid.UUID) {
+	request AddPartyRequest, id uuid.UUID) error {
 
 	err := root.repo.InsertPerson(ctx, tx, id,
 		request.FirstName, request.MiddleName,
 		request.LastName, request.GenderId, request.BirthDate)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	err = tx.Commit()
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	if err != nil {
-		log.Panicln(err)
+		return err
 	}
 
 	type Response struct {
@@ -63,14 +58,12 @@ func (root *Root) addPersonHandler(w http.ResponseWriter,
 
 	party, err := root.repo.GetParty(ctx, id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	person, err := root.repo.GetPerson(ctx, id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	response := Response{
@@ -78,30 +71,22 @@ func (root *Root) addPersonHandler(w http.ResponseWriter,
 		Person: person,
 	}
 
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Panicln(err)
-	}
+	return json.NewEncoder(w).Encode(response)
 }
 
 func (root *Root) addCustomerHandler(w http.ResponseWriter,
 	ctx context.Context,
 	tx *sql.Tx,
-	request AddPartyRequest, id uuid.UUID) {
+	request AddPartyRequest, id uuid.UUID) error {
 
 	err := root.repo.InsertCustomer(ctx, tx, id, request.CustomerName)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	err = tx.Commit()
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	if err != nil {
-		log.Panicln(err)
+		return err
 	}
 
 	type Response struct {
@@ -111,14 +96,12 @@ func (root *Root) addCustomerHandler(w http.ResponseWriter,
 
 	party, err := root.repo.GetParty(ctx, id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	customer, err := root.repo.GetCustomer(ctx, id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	response := Response{
@@ -126,14 +109,11 @@ func (root *Root) addCustomerHandler(w http.ResponseWriter,
 		Customer: customer,
 	}
 
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Panicln(err)
-	}
+	return json.NewEncoder(w).Encode(response)
 }
 
 func (root *Root) AddPartyHandler(
-	w http.ResponseWriter, r *http.Request) {
+	w http.ResponseWriter, r *http.Request) error {
 
 	ctx := r.Context()
 	userLogin := ctx.Value("userLogin").(security.UserLogin)
@@ -141,43 +121,33 @@ func (root *Root) AddPartyHandler(
 	request := AddPartyRequest{}
 	err := json.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
-		log.Println("[ERROR]", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	tx, err := root.repo.db.BeginTx(ctx, nil)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	if err != nil {
-		log.Panicln(err)
+		return err
 	}
 	defer tx.Rollback()
 
 	id, err := root.repo.InsertParty(ctx, tx,
 		request.PartyTypeId, request.Description, userLogin.Id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	if request.PartyTypeId == 1 {
-		root.addPersonHandler(w, ctx, tx, request, id)
-		return
+		return root.addPersonHandler(w, ctx, tx, request, id)
 	}
 	if request.PartyTypeId == 2 {
-		root.addCustomerHandler(w, ctx, tx, request, id)
-		return
+		return root.addCustomerHandler(w, ctx, tx, request, id)
 	}
 
-	log.Println("[ERROR]", "PartyTypeId not supported")
-	w.WriteHeader(http.StatusInternalServerError)
+	return errors.New("PartyTypeId not supported")
 }
 
 func (root *Root) ViewPersonHandler(
-	w http.ResponseWriter, r *http.Request) {
+	w http.ResponseWriter, r *http.Request) error {
 
 	ctx := r.Context()
 	var err error
@@ -219,8 +189,7 @@ func (root *Root) ViewPersonHandler(
 	count, personList, err := root.repo.ViewPerson(
 		ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	type Response struct {
@@ -232,14 +201,11 @@ func (root *Root) ViewPersonHandler(
 		Count:      count,
 		PersonList: personList,
 	}
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Panicln(err)
-	}
+	return json.NewEncoder(w).Encode(response)
 }
 
 func (root *Root) ViewCustomerHandler(
-	w http.ResponseWriter, r *http.Request) {
+	w http.ResponseWriter, r *http.Request) error {
 
 	ctx := r.Context()
 	var err error
@@ -279,8 +245,7 @@ func (root *Root) ViewCustomerHandler(
 	count, customerList, err := root.repo.ViewCustomer(
 		ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	type Response struct {
@@ -292,14 +257,11 @@ func (root *Root) ViewCustomerHandler(
 		Count:        count,
 		CustomerList: customerList,
 	}
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Panicln(err)
-	}
+	return json.NewEncoder(w).Encode(response)
 }
 
 func (root *Root) UpdatePersonHandler(
-	w http.ResponseWriter, r *http.Request) {
+	w http.ResponseWriter, r *http.Request) error {
 
 	ctx := r.Context()
 
@@ -316,16 +278,14 @@ func (root *Root) UpdatePersonHandler(
 	req := Request{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	err = root.repo.UpdatePerson(ctx,
 		req.Id, req.FirstName, req.MiddleName, req.LastName,
 		req.GenderId, req.BirthDate, req.Description)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	type Response struct {
@@ -336,15 +296,11 @@ func (root *Root) UpdatePersonHandler(
 		Status: "ok",
 	}
 
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		log.Panicln(err)
-		return
-	}
+	return json.NewEncoder(w).Encode(res)
 }
 
 func (root *Root) DeletePersonHandler(
-	w http.ResponseWriter, r *http.Request) {
+	w http.ResponseWriter, r *http.Request) error {
 
 	ctx := r.Context()
 
@@ -355,14 +311,12 @@ func (root *Root) DeletePersonHandler(
 	req := Request{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	err = root.repo.DeletePerson(ctx, req.Id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	type Response struct {
@@ -373,15 +327,11 @@ func (root *Root) DeletePersonHandler(
 		Status: "ok",
 	}
 
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		log.Panicln(err)
-		return
-	}
+	return json.NewEncoder(w).Encode(res)
 }
 
 func (root *Root) UpdateCustomerHandler(
-	w http.ResponseWriter, r *http.Request) {
+	w http.ResponseWriter, r *http.Request) error {
 
 	ctx := r.Context()
 
@@ -394,15 +344,13 @@ func (root *Root) UpdateCustomerHandler(
 	req := Request{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	err = root.repo.UpdateCustomer(ctx,
 		req.Id, req.Description, req.Name)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	type Response struct {
@@ -413,15 +361,11 @@ func (root *Root) UpdateCustomerHandler(
 		Status: "ok",
 	}
 
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		log.Panicln(err)
-		return
-	}
+	return json.NewEncoder(w).Encode(res)
 }
 
 func (root *Root) DeleteCustomerHandler(
-	w http.ResponseWriter, r *http.Request) {
+	w http.ResponseWriter, r *http.Request) error {
 
 	ctx := r.Context()
 
@@ -432,14 +376,12 @@ func (root *Root) DeleteCustomerHandler(
 	req := Request{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	err = root.repo.DeleteCustomer(ctx, req.Id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	type Response struct {
@@ -450,9 +392,5 @@ func (root *Root) DeleteCustomerHandler(
 		Status: "ok",
 	}
 
-	err = json.NewEncoder(w).Encode(res)
-	if err != nil {
-		log.Panicln(err)
-		return
-	}
+	return json.NewEncoder(w).Encode(res)
 }

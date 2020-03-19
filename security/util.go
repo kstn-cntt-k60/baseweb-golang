@@ -5,11 +5,13 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"baseweb/basic"
 
 	"github.com/go-redis/redis/v7"
 	"github.com/google/uuid"
@@ -30,19 +32,12 @@ func newSession(redisClient *redis.Client, id uuid.UUID) (string, error) {
 
 	err := redisClient.Set(key, "ok", SESSION_EXPIRATION_TIME).Err()
 	if err != nil {
-		log.Panicln(err)
+		return "", fmt.Errorf("newSession: %w", err)
 	}
 	return token, err
 }
 
-type InvalidSessionError struct {
-}
-
-func (*InvalidSessionError) Error() string {
-	return "invalid session"
-}
-
-var InvalidSession = &InvalidSessionError{}
+var InvalidSession error = errors.New("Invalid Session")
 
 func sessionValid(redisClient *redis.Client,
 	token string) (uuid.UUID, error) {
@@ -58,14 +53,11 @@ func sessionValid(redisClient *redis.Client,
 	if err == redis.Nil {
 		return id, InvalidSession
 	}
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		return id, err
-	}
 	if err != nil {
-		log.Panicln(err)
+		return id, fmt.Errorf("sessionValid: %w", err)
 	}
 	if ok != "ok" {
-		log.Panicln("value not ok")
+		return id, errors.New("sessionValid: value not ok")
 	}
 
 	tokens := strings.Split(token, ":")
@@ -103,18 +95,18 @@ func getUserLoginInfo(ctx context.Context,
 	return user, permissions, nil
 }
 
-type Handler func(http.ResponseWriter, *http.Request)
+func Authenticated(redisClient *redis.Client,
+	repo *Repo, handler basic.Handler) basic.Handler {
 
-func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handler {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		ctx := r.Context()
 		redisClient = redisClient.WithContext(ctx)
 
-		next := func(user UserLogin, permissions []string) {
+		next := func(user UserLogin, permissions []string) error {
 			ctx = context.WithValue(ctx, "userLogin", user)
 			ctx = context.WithValue(ctx, "permissions", permissions)
 			r = r.WithContext(ctx)
-			handler(w, r)
+			return handler(w, r)
 		}
 
 		token := r.Header.Get("X-Auth-Token")
@@ -123,55 +115,50 @@ func Authenticated(redisClient *redis.Client, repo *Repo, handler Handler) Handl
 		user, permissions, err := getUserLoginInfo(ctx, repo, id, err)
 
 		if err == nil {
-			next(user, permissions)
-			return
-		}
-		if err == context.Canceled || err == context.DeadlineExceeded {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return next(user, permissions)
 		}
 		if err != InvalidSession && err != sql.ErrNoRows {
-			log.Panicln(err)
+			return fmt.Errorf("Authenticated: %w", err)
 		}
 
 		username, password, ok := r.BasicAuth()
 		if !ok {
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return nil
 		}
 
 		user, err = repo.FindUserLoginByUsername(ctx, username)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return nil
 		}
 
 		err = bcrypt.CompareHashAndPassword(
 			[]byte(user.Password), []byte(password))
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return nil
 		}
 
 		permissions, err = repo.FindPermissionsByUserLoginId(ctx, user.Id)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return nil
 		}
 
 		token, err = newSession(redisClient, user.Id)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			return
+			return nil
 		}
 
 		w.Header().Add("X-Auth-Token", token)
-		next(user, permissions)
+		return next(user, permissions)
 	}
 }
 
-func Authorized(perm string, handler Handler) Handler {
-	return func(w http.ResponseWriter, r *http.Request) {
+func Authorized(perm string, handler basic.Handler) basic.Handler {
+	return func(w http.ResponseWriter, r *http.Request) error {
 		ctx := r.Context()
 		permissions := ctx.Value("permissions").([]string)
 
@@ -185,9 +172,9 @@ func Authorized(perm string, handler Handler) Handler {
 
 		if !authorized {
 			w.WriteHeader(http.StatusForbidden)
-			return
+			return nil
 		}
 
-		handler(w, r)
+		return handler(w, r)
 	}
 }

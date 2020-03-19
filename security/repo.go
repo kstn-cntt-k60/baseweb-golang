@@ -103,6 +103,7 @@ func (repo *Repo) FindPermissionsByUserLoginId(
 	if err != nil {
 		return result, err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var name string
@@ -113,7 +114,7 @@ func (repo *Repo) FindPermissionsByUserLoginId(
 		result = append(result, name)
 	}
 
-	return result, err
+	return result, rows.Err()
 }
 
 func (repo *Repo) GetUserLogin(ctx context.Context, id uuid.UUID) (UserLogin, error) {
@@ -122,10 +123,7 @@ func (repo *Repo) GetUserLogin(ctx context.Context, id uuid.UUID) (UserLogin, er
 	row := repo.getUserLogin.QueryRowContext(ctx, id)
 	user := UserLogin{}
 	err := row.Scan(&user.Id, &user.Username, &user.Password)
-	if err != nil {
-		return user, err
-	}
-	return user, nil
+	return user, err
 }
 
 func (repo *Repo) GetClientUserLogin(
@@ -137,14 +135,8 @@ func (repo *Repo) GetClientUserLogin(
 
 	user := ClientUserLogin{}
 	err := row.Scan(&user.Id, &user.Username, &user.CreatedAt, &user.UpdatedAt)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		return user, err
-	}
-	if err != nil {
-		log.Panicln(err)
-	}
 
-	return user, nil
+	return user, err
 }
 
 func (repo *Repo) GetAllGroup(ctx context.Context) ([]Group, error) {
@@ -153,26 +145,21 @@ func (repo *Repo) GetAllGroup(ctx context.Context) ([]Group, error) {
 	result := make([]Group, 0)
 
 	rows, err := repo.getAllGroup.QueryContext(ctx)
-	if err == context.Canceled || err == context.DeadlineExceeded {
+	if err != nil {
 		return result, err
 	}
-	if err != nil {
-		log.Panicln(err)
-	}
+	defer rows.Close()
 
 	for rows.Next() {
 		group := Group{}
 		err = rows.Scan(&group.Id, &group.Name, &group.CreatedAt)
-		if err == context.Canceled || err == context.DeadlineExceeded {
+		if err != nil {
 			return result, err
 		}
-		if err != nil {
-			log.Panicln(err)
-		}
-
 		result = append(result, group)
 	}
-	return result, nil
+
+	return result, rows.Err()
 }
 
 func (repo *Repo) GetAllPermission(ctx context.Context) ([]Permission, error) {
@@ -181,26 +168,21 @@ func (repo *Repo) GetAllPermission(ctx context.Context) ([]Permission, error) {
 	result := make([]Permission, 0)
 
 	rows, err := repo.getAllPermission.QueryContext(ctx)
-	if err == context.Canceled || err == context.DeadlineExceeded {
+	if err != nil {
 		return result, err
 	}
-	if err != nil {
-		log.Panicln(err)
-	}
+	defer rows.Close()
 
 	for rows.Next() {
 		perm := Permission{}
 		err := rows.Scan(&perm.Id, &perm.Name, &perm.CreatedAt)
-		if err == context.Canceled || err == context.DeadlineExceeded {
+		if err != nil {
 			return result, err
 		}
-		if err != nil {
-			log.Panicln(err)
-		}
-
 		result = append(result, perm)
 	}
-	return result, nil
+
+	return result, rows.Err()
 }
 
 func (repo *Repo) GetAllGroupPermission(ctx context.Context) ([]GroupPermission, error) {
@@ -209,26 +191,21 @@ func (repo *Repo) GetAllGroupPermission(ctx context.Context) ([]GroupPermission,
 	result := make([]GroupPermission, 0)
 
 	rows, err := repo.getAllGroupPermission.QueryContext(ctx)
-	if err == context.Canceled || err == context.DeadlineExceeded {
+	if err != nil {
 		return result, err
 	}
-	if err != nil {
-		log.Panicln(err)
-	}
+	defer rows.Close()
 
 	for rows.Next() {
 		gp := GroupPermission{}
 		err = rows.Scan(&gp.Id.GroupId, &gp.Id.PermissionId, &gp.CreatedAt)
-		if err == context.Canceled || err == context.DeadlineExceeded {
+		if err != nil {
 			return result, err
 		}
-		if err != nil {
-			log.Panicln(err)
-		}
-
 		result = append(result, gp)
 	}
-	return result, nil
+
+	return result, rows.Err()
 }
 
 func (repo *Repo) InsertGroupPermission(
@@ -241,14 +218,7 @@ func (repo *Repo) InsertGroupPermission(
         (security_group_id, security_permission_id)
         values ($1, $2)`, groupId, permissionId)
 
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		return err
-	}
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	return nil
+	return err
 }
 
 func (repo *Repo) DeleteGroupPermission(
@@ -261,14 +231,7 @@ func (repo *Repo) DeleteGroupPermission(
         where security_group_id = $1
             and security_permission_id = $2`, groupId, permissionId)
 
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		return err
-	}
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	return nil
+	return err
 }
 
 func (repo *Repo) InsertGroup(ctx context.Context, name string) (int16, error) {
@@ -279,24 +242,15 @@ func (repo *Repo) InsertGroup(ctx context.Context, name string) (int16, error) {
 
 	var maxId int16
 	err := row.Scan(&maxId)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		return 0, err
-	}
 	if err != nil {
-		log.Panicln(err)
+		return 0, err
 	}
 
 	_, err = repo.db.ExecContext(ctx,
 		`insert into security_group(id, name)
         values ($1, $2)`, maxId+1, name)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		return 0, err
-	}
-	if err != nil {
-		log.Panicln(err)
-	}
 
-	return maxId + 1, nil
+	return maxId + 1, err
 }
 
 func (repo *Repo) GetGroup(ctx context.Context, id int16) (Group, error) {
@@ -308,12 +262,6 @@ func (repo *Repo) GetGroup(ctx context.Context, id int16) (Group, error) {
 
 	group := Group{}
 	err := row.Scan(&group.Id, &group.Name, &group.CreatedAt)
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		return group, err
-	}
-	if err != nil {
-		log.Panicln(err)
-	}
 
-	return group, nil
+	return group, err
 }

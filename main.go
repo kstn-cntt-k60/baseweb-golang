@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"baseweb/account"
+	"baseweb/basic"
 	"baseweb/security"
 
 	"github.com/go-redis/redis/v7"
@@ -26,55 +29,72 @@ type Root struct {
 	account      *account.Root
 }
 
-func (root *Root) Authenticated(handler security.Handler) security.Handler {
+func UnwrapHandler(h basic.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println(r.Method, r.URL.String())
+		err := h(w, r)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				log.Println("[CANCELED]", r.Method, r.URL.String(), err)
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				log.Println("[TIMEOUT]", r.Method, r.URL.String(), err)
+			} else {
+				log.Println("[ERROR]", r.Method, r.URL.String(), err)
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}
+}
+
+func (root *Root) Authenticated(handler basic.Handler) basic.Handler {
 	return security.Authenticated(root.redisClient, root.securityRepo, handler)
 }
 
-func (root *Root) GetAuthenticated(url string, handler security.Handler) {
-	root.router.HandleFunc(url, root.Authenticated(handler)).Methods("GET")
+func (root *Root) GetAuthenticated(url string, handler basic.Handler) {
+	root.router.HandleFunc(url,
+		UnwrapHandler(
+			root.Authenticated(handler))).Methods("GET")
 }
 
-func (root *Root) PostAuthenticated(url string, handler security.Handler) {
-	root.router.HandleFunc(url, root.Authenticated(handler)).Methods("POST")
+func (root *Root) PostAuthenticated(url string, handler basic.Handler) {
+	root.router.HandleFunc(url,
+		UnwrapHandler(
+			root.Authenticated(handler))).Methods("POST")
 }
 
 func (root *Root) GetAuthorized(url string,
-	perm string, handler security.Handler) {
+	perm string, handler basic.Handler) {
 	root.router.HandleFunc(url,
-		root.Authenticated(
-			security.Authorized(perm, handler))).Methods("GET")
+		UnwrapHandler(
+			root.Authenticated(
+				security.Authorized(perm, handler)))).Methods("GET")
 }
 
 func (root *Root) PostAuthorized(url string, perm string,
-	handler security.Handler) {
+	handler basic.Handler) {
 	root.router.HandleFunc(url,
-		root.Authenticated(
-			security.Authorized(perm, handler))).Methods("POST")
+		UnwrapHandler(
+			root.Authenticated(
+				security.Authorized(perm, handler)))).Methods("POST")
 }
 
-func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) {
+func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) error {
+	time.Sleep(5 * time.Second)
+
 	user, err := root.securityRepo.FindUserLoginByUsername(r.Context(), "admin")
-	if err == sql.ErrNoRows {
-		log.Println("[ERROR]", "user not found")
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	if err == context.Canceled || err == context.DeadlineExceeded {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
 	if err != nil {
-		log.Panicln(err)
+		return err
 	}
 
 	log.Println(user)
 
 	bytes, err := json.Marshal(user)
 	if err != nil {
-		log.Panicln(err)
+		return err
 	}
 
 	fmt.Fprintln(w, string(bytes))
+	return nil
 }
 
 func main() {
