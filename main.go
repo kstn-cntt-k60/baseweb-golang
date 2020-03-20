@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,12 +15,13 @@ import (
 
 	"github.com/go-redis/redis/v7"
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
 type Root struct {
 	router       *mux.Router
-	db           *sql.DB
+	db           *sqlx.DB
 	redisClient  *redis.Client
 	securityRepo *security.Repo
 	security     *security.Root
@@ -99,10 +99,7 @@ func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) error {
 
 func main() {
 	config := "user=postgres password=1 dbname=baseweb sslmode=disable"
-	db, err := sql.Open("postgres", config)
-	if err != nil {
-		log.Panicln(err)
-	}
+	db := sqlx.MustConnect("postgres", config)
 	defer db.Close()
 
 	redisClient := redis.NewClient(&redis.Options{
@@ -180,9 +177,9 @@ func main() {
 
 	http.Handle("/", router)
 
-	err = http.ListenAndServe(":8080",
+	err := http.ListenAndServe(":8080",
 		http.HandlerFunc(applyJson(http.DefaultServeMux)))
-	log.Fatalln(err)
+	log.Fatal(err)
 }
 
 func applyJson(handler http.Handler) func(http.ResponseWriter, *http.Request) {

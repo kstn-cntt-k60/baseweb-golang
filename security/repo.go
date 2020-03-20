@@ -2,68 +2,69 @@ package security
 
 import (
 	"context"
-	"database/sql"
 	"log"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
 type Repo struct {
-	db                           *sql.DB
-	findUserLoginByUsername      *sql.Stmt
-	findPermissionsByUserLoginId *sql.Stmt
-	getUserLogin                 *sql.Stmt
-	getClientUserLogin           *sql.Stmt
-	getAllGroup                  *sql.Stmt
-	getAllPermission             *sql.Stmt
-	getAllGroupPermission        *sql.Stmt
+	db                           *sqlx.DB
+	findUserLoginByUsername      *sqlx.Stmt
+	findPermissionsByUserLoginId *sqlx.Stmt
+	getUserLogin                 *sqlx.Stmt
+	getClientUserLogin           *sqlx.Stmt
+	getAllGroup                  *sqlx.Stmt
+	getAllPermission             *sqlx.Stmt
+	getAllGroupPermission        *sqlx.Stmt
 }
 
-func InitRepo(db *sql.DB) *Repo {
-	findUserLoginByUsername, err := db.Prepare(
-		`select id, username, password from user_login where username = $1`)
+func InitRepo(db *sqlx.DB) *Repo {
+	query := `select id, username, password from user_login where username = ?`
+	findUserLoginByUsername, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	findPermissionsByUserLoginId, err := db.Prepare(
-		`select p.name from security_permission p
+	query = `select p.name from security_permission p
          inner join security_group_permission gp on gp.security_permission_id = p.id
          inner join security_group g on gp.security_group_id = g.id
          inner join user_login_security_group u on u.security_group_id = g.id
-         where u.user_login_id = $1`)
+         where u.user_login_id = ?`
+	findPermissionsByUserLoginId, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	getUserLogin, err := db.Prepare(
-		`select id, username, password from user_login where id = $1`)
+	query = `select id, username, password from user_login where id = ?`
+	getUserLogin, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	getClientUserLogin, err := db.Prepare(
-		`select id, username, created_at, updated_at
-        from user_login where id = $1`)
+	query = `select id, username, created_at, updated_at
+        from user_login where id = ?`
+	getClientUserLogin, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	getAllGroup, err := db.Prepare(
-		`select id, name, created_at from security_group`)
+	query = `select id, name, created_at from security_group`
+	getAllGroup, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	getAllPermission, err := db.Prepare(
-		`select id, name, created_at from security_permission`)
+	query = `select * from security_permission`
+	getAllPermission, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	getAllGroupPermission, err := db.Prepare(
-		`select security_group_id, security_permission_id, created_at
-        from security_group_permission`)
+	query = `select security_group_id,
+            security_permission_id, created_at
+            from security_group_permission`
+	getAllGroupPermission, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -83,110 +84,55 @@ func InitRepo(db *sql.DB) *Repo {
 func (repo *Repo) FindUserLoginByUsername(
 	ctx context.Context, username string) (UserLogin, error) {
 
-	defer log.Printf("FindUserLoginByUsername %s\n", username)
-
-	row := repo.findUserLoginByUsername.QueryRowContext(ctx, username)
+	log.Println("FindUserLoginByUsername", username)
 
 	user := UserLogin{}
-	err := row.Scan(&user.Id, &user.Username, &user.Password)
-
-	return user, err
+	return user, repo.findUserLoginByUsername.GetContext(ctx, &user, username)
 }
 
 func (repo *Repo) FindPermissionsByUserLoginId(
 	ctx context.Context, id uuid.UUID) ([]string, error) {
 
-	defer log.Printf("FindPermissionsByUserLoginId %s\n", id)
+	log.Println("FindPermissionsByUserLoginId", id)
 
 	result := make([]string, 0)
-	rows, err := repo.findPermissionsByUserLoginId.QueryContext(ctx, id)
-	if err != nil {
-		return result, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var name string
-		err = rows.Scan(&name)
-		if err != nil {
-			return result, err
-		}
-		result = append(result, name)
-	}
-
-	return result, rows.Err()
+	err := repo.findPermissionsByUserLoginId.SelectContext(ctx, &result, id)
+	return result, err
 }
 
 func (repo *Repo) GetUserLogin(ctx context.Context, id uuid.UUID) (UserLogin, error) {
-	defer log.Printf("GetUserLogin %s\n", id)
+	log.Println("GetUserLogin", id)
 
-	row := repo.getUserLogin.QueryRowContext(ctx, id)
 	user := UserLogin{}
-	err := row.Scan(&user.Id, &user.Username, &user.Password)
-	return user, err
+	return user, repo.getUserLogin.GetContext(ctx, &user, id)
 }
 
 func (repo *Repo) GetClientUserLogin(
 	ctx context.Context, id uuid.UUID) (ClientUserLogin, error) {
 
-	defer log.Printf("GetClientUserLogin %s\n", id)
-
-	row := repo.getClientUserLogin.QueryRowContext(ctx, id)
+	log.Println("GetClientUserLogin", id)
 
 	user := ClientUserLogin{}
-	err := row.Scan(&user.Id, &user.Username, &user.CreatedAt, &user.UpdatedAt)
-
+	err := repo.getClientUserLogin.GetContext(ctx, &user, id)
 	return user, err
 }
 
 func (repo *Repo) GetAllGroup(ctx context.Context) ([]Group, error) {
-	defer log.Println("GetAllGroup")
+	log.Println("GetAllGroup")
 
 	result := make([]Group, 0)
-
-	rows, err := repo.getAllGroup.QueryContext(ctx)
-	if err != nil {
-		return result, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		group := Group{}
-		err = rows.Scan(&group.Id, &group.Name, &group.CreatedAt)
-		if err != nil {
-			return result, err
-		}
-		result = append(result, group)
-	}
-
-	return result, rows.Err()
+	return result, repo.getAllGroup.SelectContext(ctx, &result)
 }
 
 func (repo *Repo) GetAllPermission(ctx context.Context) ([]Permission, error) {
-	defer log.Println("GetAllPermission")
+	log.Println("GetAllPermission")
 
 	result := make([]Permission, 0)
-
-	rows, err := repo.getAllPermission.QueryContext(ctx)
-	if err != nil {
-		return result, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		perm := Permission{}
-		err := rows.Scan(&perm.Id, &perm.Name, &perm.CreatedAt)
-		if err != nil {
-			return result, err
-		}
-		result = append(result, perm)
-	}
-
-	return result, rows.Err()
+	return result, repo.getAllPermission.SelectContext(ctx, &result)
 }
 
 func (repo *Repo) GetAllGroupPermission(ctx context.Context) ([]GroupPermission, error) {
-	defer log.Println("GetAllGroupPermission")
+	log.Println("GetAllGroupPermission")
 
 	result := make([]GroupPermission, 0)
 
@@ -211,12 +157,13 @@ func (repo *Repo) GetAllGroupPermission(ctx context.Context) ([]GroupPermission,
 func (repo *Repo) InsertGroupPermission(
 	ctx context.Context, groupId, permissionId int16) error {
 
-	defer log.Println("InsertGroupPermission", groupId, permissionId)
+	log.Println("InsertGroupPermission", groupId, permissionId)
 
-	_, err := repo.db.ExecContext(ctx,
-		`insert into security_group_permission
+	query := `insert into security_group_permission
         (security_group_id, security_permission_id)
-        values ($1, $2)`, groupId, permissionId)
+        values (?, ?)`
+	_, err := repo.db.ExecContext(ctx,
+		repo.db.Rebind(query), groupId, permissionId)
 
 	return err
 }
@@ -224,44 +171,40 @@ func (repo *Repo) InsertGroupPermission(
 func (repo *Repo) DeleteGroupPermission(
 	ctx context.Context, groupId, permissionId int16) error {
 
-	defer log.Println("DeleteGroupPermission", groupId, permissionId)
+	log.Println("DeleteGroupPermission", groupId, permissionId)
 
+	query := `delete from security_group_permission
+        where security_group_id = ?
+        and security_permission_id = ?`
 	_, err := repo.db.ExecContext(ctx,
-		`delete from security_group_permission
-        where security_group_id = $1
-            and security_permission_id = $2`, groupId, permissionId)
+		repo.db.Rebind(query), groupId, permissionId)
 
 	return err
 }
 
 func (repo *Repo) InsertGroup(ctx context.Context, name string) (int16, error) {
-	defer log.Println("InsertGroup", name)
-
-	row := repo.db.QueryRowContext(ctx,
-		`select max(id) from security_group`)
+	log.Println("InsertGroup", name)
 
 	var maxId int16
-	err := row.Scan(&maxId)
+	err := repo.db.GetContext(ctx, &maxId,
+		`select max(id) from security_group`)
 	if err != nil {
 		return 0, err
 	}
 
+	query := `insert into security_group(id, name) values (?, ?)`
 	_, err = repo.db.ExecContext(ctx,
-		`insert into security_group(id, name)
-        values ($1, $2)`, maxId+1, name)
+		repo.db.Rebind(query), maxId+1, name)
 
 	return maxId + 1, err
 }
 
 func (repo *Repo) GetGroup(ctx context.Context, id int16) (Group, error) {
-	defer log.Println("GetGroup", id)
+	log.Println("GetGroup", id)
 
-	row := repo.db.QueryRowContext(ctx,
-		`select id, name, created_at
-        from security_group where id = $1`, id)
+	query := `select id, name, created_at
+        from security_group where id = ?`
 
 	group := Group{}
-	err := row.Scan(&group.Id, &group.Name, &group.CreatedAt)
-
-	return group, err
+	return group, repo.db.GetContext(ctx, &group, repo.db.Rebind(query), id)
 }

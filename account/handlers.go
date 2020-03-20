@@ -2,7 +2,6 @@ package account
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"baseweb/security"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 )
 
 type Root struct {
@@ -36,12 +36,19 @@ type AddPartyRequest struct {
 
 func (root *Root) addPersonHandler(w http.ResponseWriter,
 	ctx context.Context,
-	tx *sql.Tx,
+	tx *sqlx.Tx,
 	request AddPartyRequest, id uuid.UUID) error {
 
-	err := root.repo.InsertPerson(ctx, tx, id,
-		request.FirstName, request.MiddleName,
-		request.LastName, request.GenderId, request.BirthDate)
+	p := Person{
+		Id:         id,
+		FirstName:  request.FirstName,
+		MiddleName: request.MiddleName,
+		LastName:   request.LastName,
+		GenderId:   request.GenderId,
+		BirthDate:  request.BirthDate,
+	}
+
+	err := root.repo.InsertPerson(ctx, tx, p)
 	if err != nil {
 		return err
 	}
@@ -76,7 +83,7 @@ func (root *Root) addPersonHandler(w http.ResponseWriter,
 
 func (root *Root) addCustomerHandler(w http.ResponseWriter,
 	ctx context.Context,
-	tx *sql.Tx,
+	tx *sqlx.Tx,
 	request AddPartyRequest, id uuid.UUID) error {
 
 	err := root.repo.InsertCustomer(ctx, tx, id, request.CustomerName)
@@ -124,7 +131,7 @@ func (root *Root) AddPartyHandler(
 		return err
 	}
 
-	tx, err := root.repo.db.BeginTx(ctx, nil)
+	tx, err := root.repo.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -281,9 +288,16 @@ func (root *Root) UpdatePersonHandler(
 		return err
 	}
 
-	err = root.repo.UpdatePerson(ctx,
-		req.Id, req.FirstName, req.MiddleName, req.LastName,
-		req.GenderId, req.BirthDate, req.Description)
+	person := ClientPerson{
+		Id:          req.Id,
+		FirstName:   req.FirstName,
+		MiddleName:  req.MiddleName,
+		LastName:    req.LastName,
+		BirthDate:   req.BirthDate,
+		GenderId:    req.GenderId,
+		Description: req.Description,
+	}
+	err = root.repo.UpdatePerson(ctx, person)
 	if err != nil {
 		return err
 	}
@@ -335,20 +349,13 @@ func (root *Root) UpdateCustomerHandler(
 
 	ctx := r.Context()
 
-	type Request struct {
-		Id          uuid.UUID `json:"id"`
-		Description string    `json:"description"`
-		Name        string    `json:"name"`
-	}
-
-	req := Request{}
-	err := json.NewDecoder(r.Body).Decode(&req)
+	customer := ClientCustomer{}
+	err := json.NewDecoder(r.Body).Decode(&customer)
 	if err != nil {
 		return err
 	}
 
-	err = root.repo.UpdateCustomer(ctx,
-		req.Id, req.Description, req.Name)
+	err = root.repo.UpdateCustomer(ctx, customer)
 	if err != nil {
 		return err
 	}

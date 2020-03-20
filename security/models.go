@@ -15,20 +15,20 @@ type UserLogin struct {
 type ClientUserLogin struct {
 	Id        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }
 
 type Permission struct {
 	Id        int16     `json:"id"`
 	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 }
 
 type Group struct {
 	Id        int16     `json:"id"`
 	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 }
 
 type GroupPermission struct {
