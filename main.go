@@ -175,6 +175,16 @@ func main() {
 		"VIEW_EDIT_PARTY",
 		root.account.DeleteCustomerHandler)
 
+	root.GetAuthorized(
+		"/api/account/query-simple-person",
+		"VIEW_EDIT_PARTY",
+		root.account.QuerySimplePersonHandler)
+
+	root.PostAuthorized(
+		"/api/account/add-user-login",
+		"VIEW_EDIT_PARTY",
+		root.account.AddUserLogin)
+
 	http.Handle("/", router)
 
 	err := http.ListenAndServe(":8080",

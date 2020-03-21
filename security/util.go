@@ -60,6 +60,11 @@ func sessionValid(redisClient *redis.Client,
 		return id, errors.New("sessionValid: value not ok")
 	}
 
+	err = redisClient.Expire(key, SESSION_EXPIRATION_TIME).Err()
+	if err != nil {
+		return id, err
+	}
+
 	tokens := strings.Split(token, ":")
 	if len(tokens) == 0 {
 		return id, InvalidSession

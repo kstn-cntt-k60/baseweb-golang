@@ -54,3 +54,21 @@ type ClientCustomer struct {
 	UpdatedAt   time.Time `json:"updatedAt" db:"updated_at"`
 	Description string    `json:"description" db:"description"`
 }
+
+type SimplePerson struct {
+	Id         uuid.UUID `json:"id" db:"id"`
+	FirstName  string    `json:"firstName" db:"first_name"`
+	MiddleName string    `json:"middleName" db:"middle_name"`
+	LastName   string    `json:"lastName" db:"last_name"`
+	BirthDate  string    `json:"birthDate" db:"birth_date"`
+	GenderId   int16     `json:"genderId" db:"gender_id"`
+}
+
+type UserLogin struct {
+	Id        uuid.UUID `json:"id" db:"id"`
+	Username  string    `json:"username" db:"username"`
+	Password  string    `json:"password" db:"password"`
+	PersonId  uuid.UUID `json:"personId" db:"person_id"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
+}

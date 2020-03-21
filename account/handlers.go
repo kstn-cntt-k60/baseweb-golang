@@ -401,3 +401,45 @@ func (root *Root) DeleteCustomerHandler(
 
 	return json.NewEncoder(w).Encode(res)
 }
+
+func (root *Root) QuerySimplePersonHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	query := r.URL.Query().Get("query")
+	personList, err := root.repo.SelectSimplePerson(ctx)
+	if err != nil {
+		return err
+	}
+
+	return json.NewEncoder(w).Encode(
+		FuzzySearchSimplePerson(personList, query))
+}
+
+func (root *Root) AddUserLogin(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	userLogin := UserLogin{}
+	err := json.NewDecoder(r.Body).Decode(&userLogin)
+	if err != nil {
+		return err
+	}
+
+	err = root.repo.InsertUserLogin(ctx, userLogin)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		Status string `json:"status"`
+	}
+
+	res := Response{
+		Status: "ok",
+	}
+
+	return json.NewEncoder(w).Encode(res)
+}

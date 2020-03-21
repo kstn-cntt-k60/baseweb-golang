@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Repo struct {
@@ -309,4 +310,35 @@ func (repo *Repo) DeleteCustomer(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return tx.Commit()
+}
+
+func (repo *Repo) SelectSimplePerson(
+	ctx context.Context) ([]SimplePerson, error) {
+
+	log.Println("SelectSimplePerson")
+
+	query := `select id, first_name, middle_name, last_name,
+            birth_date, gender_id from person`
+
+	result := make([]SimplePerson, 0)
+	return result, repo.db.SelectContext(ctx, &result, query)
+}
+
+func (repo *Repo) InsertUserLogin(
+	ctx context.Context, userLogin UserLogin) error {
+
+	log.Println("InsertUserLogin", userLogin.Username,
+		userLogin.Password, userLogin.PersonId)
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(userLogin.Password), 10)
+	if err != nil {
+		return err
+	}
+	userLogin.Password = string(hash)
+
+	query := `insert into user_login(username, password, person_id)
+            values (:username, :password, :person_id)`
+
+	_, err = repo.db.NamedExecContext(ctx, query, userLogin)
+	return err
 }
