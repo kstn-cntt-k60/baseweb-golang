@@ -11,11 +11,14 @@ import (
 )
 
 type Repo struct {
-	db            *sqlx.DB
-	countPerson   *sqlx.Stmt
-	viewPerson    *sqlx.Stmt
-	countCustomer *sqlx.Stmt
-	viewCustomer  *sqlx.Stmt
+	db              *sqlx.DB
+	countPerson     *sqlx.Stmt
+	viewPerson      *sqlx.Stmt
+	countCustomer   *sqlx.Stmt
+	viewCustomer    *sqlx.Stmt
+	countUserLogin  *sqlx.Stmt
+	viewUserLogin   *sqlx.Stmt
+	selectUserLogin *sqlx.Stmt
 }
 
 func InitRepo(db *sqlx.DB) *Repo {
@@ -57,12 +60,45 @@ func InitRepo(db *sqlx.DB) *Repo {
 		log.Panicln(err)
 	}
 
+	query = "select count(*) from user_login"
+	countUserLogin, err := db.Preparex(query)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	query = `select u.id, u.username,
+        u.created_at, u.updated_at,
+        p.first_name, p.middle_name, p.last_name,
+        p.birth_date, p.gender_id
+        from user_login u
+        inner join person p on u.person_id = p.id
+        order by u.created_at desc
+        limit ? offset ?`
+	viewUserLogin, err := db.Preparex(db.Rebind(query))
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	query = `select u.id, u.username,
+        u.created_at, u.updated_at,
+        p.first_name, p.middle_name, p.last_name,
+        p.birth_date, p.gender_id
+        from user_login u
+        inner join person p on u.person_id = p.id`
+	selectUserLogin, err := db.Preparex(query)
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	return &Repo{
-		db:            db,
-		countPerson:   countPerson,
-		viewPerson:    viewPerson,
-		countCustomer: countCustomer,
-		viewCustomer:  viewCustomer,
+		db:              db,
+		countPerson:     countPerson,
+		viewPerson:      viewPerson,
+		countCustomer:   countCustomer,
+		viewCustomer:    viewCustomer,
+		countUserLogin:  countUserLogin,
+		viewUserLogin:   viewUserLogin,
+		selectUserLogin: selectUserLogin,
 	}
 }
 
@@ -341,4 +377,55 @@ func (repo *Repo) InsertUserLogin(
 
 	_, err = repo.db.NamedExecContext(ctx, query, userLogin)
 	return err
+}
+
+func (repo *Repo) ViewUserLogin(
+	ctx context.Context, page, pageSize uint,
+	sortedBy, sortOrder string) (uint, []ClientUserLogin, error) {
+
+	log.Println("ViewUserLogin", page, pageSize)
+
+	var count uint
+	result := make([]ClientUserLogin, 0)
+
+	err := repo.countUserLogin.GetContext(ctx, &count)
+	if err != nil {
+		return count, result, err
+	}
+
+	if sortedBy == "created_at" && sortOrder == "desc" {
+		err = repo.viewUserLogin.SelectContext(ctx,
+			&result, pageSize, page*pageSize)
+		return count, result, err
+	} else {
+		query := fmt.Sprintf(`select u.id, u.username,
+            u.created_at, u.updated_at,
+            p.first_name, p.middle_name, p.last_name,
+            p.birth_date, p.gender_id
+            from user_login u
+            inner join person p on u.person_id = p.id
+            order by u.%s %s
+            limit ? offset ?`, sortedBy, sortOrder)
+		log.Println("[SQL]", query)
+
+		err = repo.db.SelectContext(ctx, &result,
+			repo.db.Rebind(query), pageSize, page*pageSize)
+		return count, result, err
+	}
+}
+
+func (repo *Repo) SelectUserLogin(
+	ctx context.Context) (uint, []ClientUserLogin, error) {
+
+	log.Println("SelectUserLogin")
+
+	var count uint
+	result := make([]ClientUserLogin, 0)
+
+	err := repo.countUserLogin.GetContext(ctx, &count)
+	if err != nil {
+		return count, result, err
+	}
+
+	return count, result, repo.selectUserLogin.SelectContext(ctx, &result)
 }

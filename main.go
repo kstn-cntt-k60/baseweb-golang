@@ -185,6 +185,11 @@ func main() {
 		"VIEW_EDIT_PARTY",
 		root.account.AddUserLogin)
 
+	root.GetAuthorized(
+		"/api/account/view-user-login",
+		"VIEW_EDIT_PARTY",
+		root.account.ViewUserLoginHandler)
+
 	http.Handle("/", router)
 
 	err := http.ListenAndServe(":8080",

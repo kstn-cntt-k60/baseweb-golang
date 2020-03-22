@@ -443,3 +443,63 @@ func (root *Root) AddUserLogin(
 
 	return json.NewEncoder(w).Encode(res)
 }
+
+func (root *Root) ViewUserLoginHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+	queries := r.URL.Query()
+
+	var page int
+	page, err := strconv.Atoi(queries.Get("page"))
+	if err != nil {
+		page = 0
+	}
+
+	var pageSize int
+	pageSize, err = strconv.Atoi(queries.Get("pageSize"))
+	if err != nil {
+		pageSize = 10
+	}
+
+	sortedBy := "created_at"
+	sortedByQuery := queries.Get("sortedBy")
+	if sortedByQuery == "username" {
+		sortedBy = "username"
+	} else if sortedByQuery == "updatedAt" {
+		sortedBy = "updated_at"
+	}
+
+	sortOrder := "desc"
+	sortOrderQuery := queries.Get("sortOrder")
+	if sortOrderQuery == "asc" {
+		sortOrder = "asc"
+	}
+
+	var count uint
+	var userLogins []ClientUserLogin
+
+	query := queries.Get("query")
+	if query == "" {
+		count, userLogins, err = root.repo.ViewUserLogin(
+			ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
+	} else {
+		count, userLogins, err = root.repo.SelectUserLogin(ctx)
+		count, userLogins = FuzzySearchUserLogin(userLogins,
+			query, uint(page), uint(pageSize))
+	}
+
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		Count         uint              `json:"count"`
+		UserLoginList []ClientUserLogin `json:"userLoginList"`
+	}
+	response := Response{
+		Count:         count,
+		UserLoginList: userLogins,
+	}
+	return json.NewEncoder(w).Encode(response)
+}

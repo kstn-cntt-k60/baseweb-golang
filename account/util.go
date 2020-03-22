@@ -9,24 +9,24 @@ import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
-type match struct {
+type simplePersonMatch struct {
 	person SimplePerson
 	score  int
 }
 
-type matchList []match
+type simplePersonMatchList []simplePersonMatch
 
-func (m matchList) Len() int {
+func (m simplePersonMatchList) Len() int {
 	return len(m)
 }
 
-func (m matchList) Swap(i, j int) {
+func (m simplePersonMatchList) Swap(i, j int) {
 	a := m[i]
 	m[i] = m[j]
 	m[j] = a
 }
 
-func (m matchList) Less(i, j int) bool {
+func (m simplePersonMatchList) Less(i, j int) bool {
 	return m[i].score < m[j].score
 }
 
@@ -34,7 +34,7 @@ func FuzzySearchSimplePerson(
 	personList []SimplePerson,
 	query string) []SimplePerson {
 
-	matches := make([]match, 0)
+	matches := make([]simplePersonMatch, 0)
 	for _, person := range personList {
 		d, err := time.Parse(time.RFC3339, person.BirthDate)
 		if err != nil {
@@ -50,13 +50,13 @@ func FuzzySearchSimplePerson(
 			continue
 		}
 
-		matches = append(matches, match{
+		matches = append(matches, simplePersonMatch{
 			person: person,
 			score:  score,
 		})
 	}
 
-	sort.Sort(matchList(matches))
+	sort.Sort(simplePersonMatchList(matches))
 
 	result := make([]SimplePerson, 0, 10)
 	for i, m := range matches {
@@ -66,4 +66,60 @@ func FuzzySearchSimplePerson(
 		result = append(result, m.person)
 	}
 	return result
+}
+
+type userLoginMatch struct {
+	userLogin ClientUserLogin
+	score     int
+}
+
+type userLoginMatchList []userLoginMatch
+
+func (list userLoginMatchList) Len() int {
+	return len(list)
+}
+
+func (list userLoginMatchList) Less(i, j int) bool {
+	return list[i].score < list[j].score
+}
+
+func (list userLoginMatchList) Swap(i, j int) {
+	t := list[i]
+	list[i] = list[j]
+	list[j] = t
+}
+
+func FuzzySearchUserLogin(list []ClientUserLogin,
+	query string, page, pageSize uint) (uint, []ClientUserLogin) {
+
+	matches := make([]userLoginMatch, 0, len(list))
+	for _, userLogin := range list {
+		target := userLogin.Username
+		score := fuzzy.RankMatchNormalizedFold(query, target)
+		if score == -1 {
+			continue
+		}
+
+		match := userLoginMatch{
+			userLogin: userLogin,
+			score:     score,
+		}
+		matches = append(matches, match)
+	}
+
+	sort.Sort(userLoginMatchList(matches))
+
+	result := make([]ClientUserLogin, 0, pageSize)
+
+	first := page * pageSize
+	last := (page + 1) * pageSize
+	if uint(len(matches)) < last {
+		last = uint(len(matches))
+	}
+
+	for i := first; i < last; i++ {
+		result = append(result, matches[i].userLogin)
+	}
+
+	return uint(len(matches)), result
 }

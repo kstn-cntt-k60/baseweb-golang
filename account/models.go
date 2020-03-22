@@ -72,3 +72,15 @@ type UserLogin struct {
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }
+
+type ClientUserLogin struct {
+	Id         uuid.UUID `json:"id" db:"id"`
+	Username   string    `json:"username" db:"username"`
+	CreatedAt  time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt  time.Time `json:"updatedAt" db:"updated_at"`
+	FirstName  string    `json:"firstName" db:"first_name"`
+	MiddleName string    `json:"middleName" db:"middle_name"`
+	LastName   string    `json:"lastName" db:"last_name"`
+	BirthDate  string    `json:"birthDate" db:"birth_date"`
+	GenderId   int16     `json:"genderId" db:"gender_id"`
+}
