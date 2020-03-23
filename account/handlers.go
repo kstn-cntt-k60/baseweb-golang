@@ -503,3 +503,60 @@ func (root *Root) ViewUserLoginHandler(
 	}
 	return json.NewEncoder(w).Encode(response)
 }
+
+func (root *Root) UpdateUserLoginHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	userLogin := UserLogin{}
+	err := json.NewDecoder(r.Body).Decode(&userLogin)
+	if err != nil {
+		return err
+	}
+
+	err = root.repo.UpdateUserLogin(ctx, userLogin)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		Status string `json:"status"`
+	}
+
+	res := Response{
+		Status: "ok",
+	}
+
+	return json.NewEncoder(w).Encode(res)
+}
+
+func (root *Root) DeleteUserLoginHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	type Request struct {
+		Id uuid.UUID `json:"id"`
+	}
+	req := Request{}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		return err
+	}
+
+	err = root.repo.DeleteUserLogin(ctx, req.Id)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		Status string `json:"status"`
+	}
+
+	res := Response{
+		Status: "ok",
+	}
+
+	return json.NewEncoder(w).Encode(res)
+}

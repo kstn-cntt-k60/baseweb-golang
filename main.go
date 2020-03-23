@@ -190,8 +190,19 @@ func main() {
 		"VIEW_EDIT_PARTY",
 		root.account.ViewUserLoginHandler)
 
+	root.PostAuthorized(
+		"/api/account/update-user-login",
+		"VIEW_EDIT_PARTY",
+		root.account.UpdateUserLoginHandler)
+
+	root.PostAuthorized(
+		"/api/account/delete-user-login",
+		"VIEW_EDIT_PARTY",
+		root.account.DeleteUserLoginHandler)
+
 	http.Handle("/", router)
 
+	log.Println("Server is running")
 	err := http.ListenAndServe(":8080",
 		http.HandlerFunc(applyJson(http.DefaultServeMux)))
 	log.Fatal(err)

@@ -429,3 +429,42 @@ func (repo *Repo) SelectUserLogin(
 
 	return count, result, repo.selectUserLogin.SelectContext(ctx, &result)
 }
+
+func (repo *Repo) UpdateUserLogin(
+	ctx context.Context, userLogin UserLogin) error {
+
+	log.Println("UpdateUserLogin", userLogin.Id,
+		userLogin.Username, userLogin.Password)
+
+	if userLogin.Password == "" {
+		query := `update user_login
+            set username = :username where id = :id`
+		_, err := repo.db.NamedExecContext(ctx, query, userLogin)
+		return err
+	} else {
+		query := `update user_login
+            set username = :username, password = :password
+            where id = :id`
+
+		hash, err := bcrypt.GenerateFromPassword(
+			[]byte(userLogin.Password), 10)
+		if err != nil {
+			return err
+		}
+
+		userLogin.Password = string(hash)
+		_, err = repo.db.NamedExecContext(ctx, query, userLogin)
+		return err
+	}
+}
+
+func (repo *Repo) DeleteUserLogin(
+	ctx context.Context, id uuid.UUID) error {
+
+	log.Println("DeleteUserLogin", id)
+
+	query := "delete from user_login where id = ?"
+	_, err := repo.db.ExecContext(ctx, repo.db.Rebind(query), id)
+
+	return err
+}
