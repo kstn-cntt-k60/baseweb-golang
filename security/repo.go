@@ -208,3 +208,43 @@ func (repo *Repo) GetGroup(ctx context.Context, id int16) (Group, error) {
 	group := Group{}
 	return group, repo.db.GetContext(ctx, &group, repo.db.Rebind(query), id)
 }
+
+func (repo *Repo) GetGroupIdsByUserLoginId(
+	ctx context.Context, id uuid.UUID) ([]uint16, error) {
+
+	log.Println("GetGroupIdsByUserLoginId", id)
+
+	query := `select security_group_id
+        from user_login_security_group
+        where user_login_id = ?`
+
+	result := make([]uint16, 0)
+	return result, repo.db.Select(&result, repo.db.Rebind(query), id)
+}
+
+func (repo *Repo) InsertUserLoginGroup(
+	ctx context.Context, userLoginId uuid.UUID, groupId uint16) error {
+
+	log.Println("InsertUserLoginGroup", userLoginId, groupId)
+
+	query := `insert into user_login_security_group(
+        user_login_id, security_group_id)
+        values (?, ?)`
+
+	_, err := repo.db.ExecContext(ctx,
+		repo.db.Rebind(query), userLoginId, groupId)
+	return err
+}
+
+func (repo *Repo) DeleteUserLoginGroup(
+	ctx context.Context, userLoginId uuid.UUID, groupId uint16) error {
+
+	log.Println("DeleteUserLoginGroup", userLoginId, groupId)
+
+	query := `delete from user_login_security_group where
+        user_login_id = ? and security_group_id = ?`
+
+	_, err := repo.db.ExecContext(ctx,
+		repo.db.Rebind(query), userLoginId, groupId)
+	return err
+}

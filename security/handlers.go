@@ -3,6 +3,9 @@ package security
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 type Root struct {
@@ -155,4 +158,90 @@ func (root *Root) AddSecurityGroupHandler(
 	}
 
 	return json.NewEncoder(w).Encode(response)
+}
+
+func (root *Root) UserLoginInfoHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	id, err := uuid.Parse(vars["id"])
+	if err != nil {
+		return err
+	}
+
+	groups, err := root.repo.GetAllGroup(ctx)
+	if err != nil {
+		return err
+	}
+
+	perms, err := root.repo.GetAllPermission(ctx)
+	if err != nil {
+		return err
+	}
+
+	groupPerms, err := root.repo.GetAllGroupPermission(ctx)
+	if err != nil {
+		return err
+	}
+
+	groupIds, err := root.repo.GetGroupIdsByUserLoginId(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		Groups           []Group           `json:"groups"`
+		Permissions      []Permission      `json:"permissions"`
+		GroupPermissions []GroupPermission `json:"groupPermissions"`
+		GroupIdList      []uint16          `json:"groupIdList"`
+	}
+
+	res := Response{
+		Groups:           groups,
+		Permissions:      perms,
+		GroupPermissions: groupPerms,
+		GroupIdList:      groupIds,
+	}
+
+	return json.NewEncoder(w).Encode(res)
+}
+
+func (root *Root) SaveUserLoginGroupsHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	type Request struct {
+		Id           uuid.UUID `json:"id"`
+		ToBeInserted []uint16  `json:"toBeInserted"`
+		ToBeDeleted  []uint16  `json:"toBeDeleted"`
+	}
+
+	req := Request{}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		return err
+	}
+
+	for _, groupId := range req.ToBeInserted {
+		err = root.repo.InsertUserLoginGroup(ctx, req.Id, groupId)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, groupId := range req.ToBeDeleted {
+		err = root.repo.DeleteUserLoginGroup(ctx, req.Id, groupId)
+		if err != nil {
+			return err
+		}
+	}
+
+	groupIds, err := root.repo.GetGroupIdsByUserLoginId(ctx, req.Id)
+	if err != nil {
+		return err
+	}
+
+	return json.NewEncoder(w).Encode(groupIds)
 }

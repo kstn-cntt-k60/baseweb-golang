@@ -200,6 +200,16 @@ func main() {
 		"VIEW_EDIT_PARTY",
 		root.account.DeleteUserLoginHandler)
 
+	root.GetAuthorized(
+		"/api/security/user-login-info/{id}",
+		"VIEW_EDIT_SECURITY_GROUP",
+		root.security.UserLoginInfoHandler)
+
+	root.PostAuthorized(
+		"/api/security/save-user-login-security-groups",
+		"VIEW_EDIT_SECURITY_GROUP",
+		root.security.SaveUserLoginGroupsHandler)
+
 	http.Handle("/", router)
 
 	log.Println("Server is running")
