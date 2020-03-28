@@ -11,6 +11,7 @@ import (
 
 	"baseweb/account"
 	"baseweb/basic"
+	"baseweb/product"
 	"baseweb/security"
 
 	"github.com/go-redis/redis/v7"
@@ -27,6 +28,8 @@ type Root struct {
 	security     *security.Root
 	accountRepo  *account.Repo
 	account      *account.Root
+	productRepo  *product.Repo
+	product      *product.Root
 }
 
 func UnwrapHandler(h basic.Handler) http.HandlerFunc {
@@ -109,6 +112,7 @@ func main() {
 
 	securityRepo := security.InitRepo(db)
 	accountRepo := account.InitRepo(db)
+	productRepo := product.InitRepo(db)
 
 	router := mux.NewRouter()
 
@@ -120,6 +124,8 @@ func main() {
 		security:     security.InitRoot(securityRepo),
 		accountRepo:  accountRepo,
 		account:      account.InitRoot(accountRepo),
+		productRepo:  productRepo,
+		product:      product.InitRoot(productRepo),
 	}
 
 	root.GetAuthorized("/", "VIEW_EDIT_USER_LOGIN", root.homeHandler)
@@ -209,6 +215,26 @@ func main() {
 		"/api/security/save-user-login-security-groups",
 		"VIEW_EDIT_SECURITY_GROUP",
 		root.security.SaveUserLoginGroupsHandler)
+
+	root.PostAuthorized(
+		"/api/product/save-product",
+		"VIEW_EDIT_PRODUCT",
+		root.product.AddProductHandler)
+
+	root.GetAuthorized(
+		"/api/product/view-product",
+		"VIEW_EDIT_PRODUCT",
+		root.product.ViewProductHandler)
+
+	root.PostAuthorized(
+		"/api/product/update-product",
+		"VIEW_EDIT_PRODUCT",
+		root.product.UpdateProductHandler)
+
+	root.PostAuthorized(
+		"/api/product/delete-product",
+		"VIEW_EDIT_PRODUCT",
+		root.product.DeleteProductHandler)
 
 	http.Handle("/", router)
 
