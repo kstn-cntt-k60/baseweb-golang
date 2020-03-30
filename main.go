@@ -11,6 +11,7 @@ import (
 
 	"baseweb/account"
 	"baseweb/basic"
+	"baseweb/facility"
 	"baseweb/product"
 	"baseweb/security"
 
@@ -30,6 +31,8 @@ type Root struct {
 	account      *account.Root
 	productRepo  *product.Repo
 	product      *product.Root
+	facilityRepo *facility.Repo
+	facility     *facility.Root
 }
 
 func UnwrapHandler(h basic.Handler) http.HandlerFunc {
@@ -113,6 +116,7 @@ func main() {
 	securityRepo := security.InitRepo(db)
 	accountRepo := account.InitRepo(db)
 	productRepo := product.InitRepo(db)
+	facilityRepo := facility.InitRepo(db)
 
 	router := mux.NewRouter()
 
@@ -126,6 +130,8 @@ func main() {
 		account:      account.InitRoot(accountRepo),
 		productRepo:  productRepo,
 		product:      product.InitRoot(productRepo),
+		facilityRepo: facilityRepo,
+		facility:     facility.InitRoot(facilityRepo),
 	}
 
 	root.GetAuthorized("/", "VIEW_EDIT_USER_LOGIN", root.homeHandler)
@@ -235,6 +241,26 @@ func main() {
 		"/api/product/delete-product",
 		"VIEW_EDIT_PRODUCT",
 		root.product.DeleteProductHandler)
+
+	root.PostAuthorized(
+		"/api/facility/save-warehouse",
+		"VIEW_EDIT_FACILITY",
+		root.facility.AddWarehouseHandler)
+
+	root.GetAuthorized(
+		"/api/facility/view-warehouse",
+		"VIEW_EDIT_FACILITY",
+		root.facility.ViewWarehouseHandler)
+
+	root.PostAuthorized(
+		"/api/facility/update-warehouse",
+		"VIEW_EDIT_FACILITY",
+		root.facility.UpdateWarehouseHandler)
+
+	root.PostAuthorized(
+		"/api/facility/delete-warehouse",
+		"VIEW_EDIT_FACILITY",
+		root.facility.DeleteWarehouseHandler)
 
 	http.Handle("/", router)
 
