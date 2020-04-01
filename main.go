@@ -223,7 +223,7 @@ func main() {
 		root.security.SaveUserLoginGroupsHandler)
 
 	root.PostAuthorized(
-		"/api/product/save-product",
+		"/api/product/add-product",
 		"VIEW_EDIT_PRODUCT",
 		root.product.AddProductHandler)
 
@@ -243,7 +243,7 @@ func main() {
 		root.product.DeleteProductHandler)
 
 	root.PostAuthorized(
-		"/api/facility/save-warehouse",
+		"/api/facility/add-warehouse",
 		"VIEW_EDIT_FACILITY",
 		root.facility.AddWarehouseHandler)
 
@@ -261,6 +261,31 @@ func main() {
 		"/api/facility/delete-warehouse",
 		"VIEW_EDIT_FACILITY",
 		root.facility.DeleteWarehouseHandler)
+
+	root.GetAuthorized(
+		"/api/facility/view-customer-store",
+		"VIEW_EDIT_FACILITY",
+		root.facility.ViewCustomerStoreHandler)
+
+	root.GetAuthorized(
+		"/api/facility/query-simple-customer",
+		"VIEW_EDIT_FACILITY",
+		root.facility.QuerySimpleCustomerHandler)
+
+	root.PostAuthorized(
+		"/api/facility/add-customer-store",
+		"VIEW_EDIT_FACILITY",
+		root.facility.AddCustomerStoreHandler)
+
+	root.PostAuthorized(
+		"/api/facility/update-customer-store",
+		"VIEW_EDIT_FACILITY",
+		root.facility.UpdateCustomerStoreHandler)
+
+	root.PostAuthorized(
+		"/api/facility/delete-customer-store",
+		"VIEW_EDIT_FACILITY",
+		root.facility.DeleteCustomerStoreHandler)
 
 	http.Handle("/", router)
 
