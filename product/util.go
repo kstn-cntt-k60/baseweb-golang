@@ -1,6 +1,7 @@
 package product
 
 import (
+	"context"
 	"sort"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
@@ -58,4 +59,24 @@ func FuzzySearchProduct(
 		result = append(result, matches[i].product)
 	}
 	return uint(len(matches)), result
+}
+
+func ViewProductFuzzy(
+	ctx context.Context, repo *Repo,
+	page, pageSize uint,
+	sortedBy, sortOrder string,
+	search string) (uint, []ClientProduct, error) {
+
+	if search == "" {
+		return repo.ViewProduct(
+			ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
+	} else {
+		count, products, err := repo.SelectProduct(ctx)
+		if err != nil {
+			return count, products, err
+		}
+		count, products = FuzzySearchProduct(products,
+			uint(page), uint(pageSize), search)
+		return count, products, err
+	}
 }

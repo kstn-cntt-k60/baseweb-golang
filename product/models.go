@@ -1,6 +1,7 @@
 package product
 
 import (
+	"baseweb/basic"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,4 +30,24 @@ type ClientProduct struct {
 	UnitUomId   string              `json:"unitUomId" db:"unit_uom_id"`
 	CreatedAt   time.Time           `json:"createdAt" db:"created_at"`
 	UpdatedAt   time.Time           `json:"updatedAt" db:"updated_at"`
+}
+
+type ProductPrice struct {
+	Id            uuid.UUID       `json:"id" db:"id"`
+	Productid     int64           `json:"productId" db:"product_id"`
+	CurrencyUomId string          `json:"currencyUomId" db:"currency_uom_id"`
+	Price         decimal.Decimal `json:"price" db:"price"`
+	CreatedBy     string          `json:"createdBy" db:"created_by"`
+	EffectiveFrom time.Time       `json:"effectiveFrom" db:"effective_from"`
+	ExpiredAt     basic.NullTime  `json:"expiredAt" db:"expired_at"`
+	CreatedAt     time.Time       `json:"createdAt" db:"created_at"`
+	UpdatedAt     time.Time       `json:"updatedAt" db:"updated_at"`
+}
+
+type InsertionPrice struct {
+	ProductId     int64           `json:"productId" db:"product_id"`
+	Price         decimal.Decimal `json:"price" db:"price"`
+	CurrencyUomId string          `json:"currencyUomId" db:"currency_uom_id"`
+	CreatedBy     uuid.UUID       `json:"createdBy" db:"created_by_user_login_id"`
+	EffectiveFrom time.Time       `json:"effectiveFrom" db:"effective_from"`
 }

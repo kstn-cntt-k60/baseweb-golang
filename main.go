@@ -242,6 +242,21 @@ func main() {
 		"VIEW_EDIT_PRODUCT",
 		root.product.DeleteProductHandler)
 
+	root.GetAuthorized(
+		"/api/product/view-product-pricing",
+		"VIEW_EDIT_PRODUCT",
+		root.product.ViewProductPricingHandler)
+
+	root.GetAuthorized(
+		"/api/product/view-product-price",
+		"VIEW_EDIT_PRODUCT",
+		root.product.ViewProductPriceHandler)
+
+	root.PostAuthorized(
+		"/api/product/add-product-price",
+		"VIEW_EDIT_PRODUCT",
+		root.product.AddProductPriceHandler)
+
 	root.PostAuthorized(
 		"/api/facility/add-warehouse",
 		"VIEW_EDIT_FACILITY",
