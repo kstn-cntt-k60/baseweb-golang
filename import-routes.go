@@ -1,0 +1,13 @@
+package main
+
+func ImportRoutes(root *Root) {
+	root.GetAuthorized(
+		"/api/import/view-product-by-warehouse",
+		"IMPORT",
+		root.importProduct.ViewProductByWarehouseHandler)
+
+	root.PostAuthorized(
+		"/api/import/add-inventory-item",
+		"IMPORT",
+		root.importProduct.AddInventoryItemHandler)
+}

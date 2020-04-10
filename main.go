@@ -12,6 +12,7 @@ import (
 	"baseweb/account"
 	"baseweb/basic"
 	"baseweb/facility"
+	importProduct "baseweb/import"
 	"baseweb/product"
 	"baseweb/security"
 
@@ -22,17 +23,19 @@ import (
 )
 
 type Root struct {
-	router       *mux.Router
-	db           *sqlx.DB
-	redisClient  *redis.Client
-	securityRepo *security.Repo
-	security     *security.Root
-	accountRepo  *account.Repo
-	account      *account.Root
-	productRepo  *product.Repo
-	product      *product.Root
-	facilityRepo *facility.Repo
-	facility     *facility.Root
+	router        *mux.Router
+	db            *sqlx.DB
+	redisClient   *redis.Client
+	securityRepo  *security.Repo
+	security      *security.Root
+	accountRepo   *account.Repo
+	account       *account.Root
+	productRepo   *product.Repo
+	product       *product.Root
+	facilityRepo  *facility.Repo
+	facility      *facility.Root
+	importRepo    *importProduct.Repo
+	importProduct *importProduct.Root
 }
 
 func UnwrapHandler(h basic.Handler) http.HandlerFunc {
@@ -117,190 +120,33 @@ func main() {
 	accountRepo := account.InitRepo(db)
 	productRepo := product.InitRepo(db)
 	facilityRepo := facility.InitRepo(db)
+	importRepo := importProduct.InitRepo(db)
 
 	router := mux.NewRouter()
 
 	root := &Root{
-		router:       router,
-		db:           db,
-		redisClient:  redisClient,
-		securityRepo: securityRepo,
-		security:     security.InitRoot(securityRepo),
-		accountRepo:  accountRepo,
-		account:      account.InitRoot(accountRepo),
-		productRepo:  productRepo,
-		product:      product.InitRoot(productRepo),
-		facilityRepo: facilityRepo,
-		facility:     facility.InitRoot(facilityRepo),
+		router:        router,
+		db:            db,
+		redisClient:   redisClient,
+		securityRepo:  securityRepo,
+		security:      security.InitRoot(securityRepo),
+		accountRepo:   accountRepo,
+		account:       account.InitRoot(accountRepo),
+		productRepo:   productRepo,
+		product:       product.InitRoot(productRepo),
+		facilityRepo:  facilityRepo,
+		facility:      facility.InitRoot(facilityRepo),
+		importRepo:    importRepo,
+		importProduct: importProduct.InitRoot(importRepo),
 	}
 
 	root.GetAuthorized("/", "VIEW_EDIT_USER_LOGIN", root.homeHandler)
-	root.PostAuthenticated("/api/login", root.security.LoginHandler)
 
-	root.GetAuthorized(
-		"/api/security/permission",
-		"VIEW_EDIT_SECURITY_PERMISSION",
-		root.security.SecurityPermissionHandler)
-
-	root.PostAuthorized(
-		"/api/security/save-group-permissions",
-		"VIEW_EDIT_SECURITY_PERMISSION",
-		root.security.SaveGroupPermissonsHandler)
-
-	root.PostAuthorized(
-		"/api/security/add-security-group",
-		"VIEW_EDIT_SECURITY_GROUP",
-		root.security.AddSecurityGroupHandler)
-
-	root.PostAuthorized(
-		"/api/account/add-party",
-		"VIEW_EDIT_PARTY",
-		root.account.AddPartyHandler)
-
-	root.GetAuthorized(
-		"/api/account/view-person",
-		"VIEW_EDIT_PARTY",
-		root.account.ViewPersonHandler)
-
-	root.GetAuthorized(
-		"/api/account/view-customer",
-		"VIEW_EDIT_PARTY",
-		root.account.ViewCustomerHandler)
-
-	root.PostAuthorized(
-		"/api/account/update-person",
-		"VIEW_EDIT_PARTY",
-		root.account.UpdatePersonHandler)
-
-	root.PostAuthorized(
-		"/api/account/delete-person",
-		"VIEW_EDIT_PARTY",
-		root.account.DeletePersonHandler)
-
-	root.PostAuthorized(
-		"/api/account/update-customer",
-		"VIEW_EDIT_PARTY",
-		root.account.UpdateCustomerHandler)
-
-	root.PostAuthorized(
-		"/api/account/delete-customer",
-		"VIEW_EDIT_PARTY",
-		root.account.DeleteCustomerHandler)
-
-	root.GetAuthorized(
-		"/api/account/query-simple-person",
-		"VIEW_EDIT_PARTY",
-		root.account.QuerySimplePersonHandler)
-
-	root.PostAuthorized(
-		"/api/account/add-user-login",
-		"VIEW_EDIT_PARTY",
-		root.account.AddUserLogin)
-
-	root.GetAuthorized(
-		"/api/account/view-user-login",
-		"VIEW_EDIT_PARTY",
-		root.account.ViewUserLoginHandler)
-
-	root.PostAuthorized(
-		"/api/account/update-user-login",
-		"VIEW_EDIT_PARTY",
-		root.account.UpdateUserLoginHandler)
-
-	root.PostAuthorized(
-		"/api/account/delete-user-login",
-		"VIEW_EDIT_PARTY",
-		root.account.DeleteUserLoginHandler)
-
-	root.GetAuthorized(
-		"/api/security/user-login-info/{id}",
-		"VIEW_EDIT_SECURITY_GROUP",
-		root.security.UserLoginInfoHandler)
-
-	root.PostAuthorized(
-		"/api/security/save-user-login-security-groups",
-		"VIEW_EDIT_SECURITY_GROUP",
-		root.security.SaveUserLoginGroupsHandler)
-
-	root.PostAuthorized(
-		"/api/product/add-product",
-		"VIEW_EDIT_PRODUCT",
-		root.product.AddProductHandler)
-
-	root.GetAuthorized(
-		"/api/product/view-product",
-		"VIEW_EDIT_PRODUCT",
-		root.product.ViewProductHandler)
-
-	root.PostAuthorized(
-		"/api/product/update-product",
-		"VIEW_EDIT_PRODUCT",
-		root.product.UpdateProductHandler)
-
-	root.PostAuthorized(
-		"/api/product/delete-product",
-		"VIEW_EDIT_PRODUCT",
-		root.product.DeleteProductHandler)
-
-	root.GetAuthorized(
-		"/api/product/view-product-pricing",
-		"VIEW_EDIT_PRODUCT",
-		root.product.ViewProductPricingHandler)
-
-	root.GetAuthorized(
-		"/api/product/view-product-price",
-		"VIEW_EDIT_PRODUCT",
-		root.product.ViewProductPriceHandler)
-
-	root.PostAuthorized(
-		"/api/product/add-product-price",
-		"VIEW_EDIT_PRODUCT",
-		root.product.AddProductPriceHandler)
-
-	root.PostAuthorized(
-		"/api/facility/add-warehouse",
-		"VIEW_EDIT_FACILITY",
-		root.facility.AddWarehouseHandler)
-
-	root.GetAuthorized(
-		"/api/facility/view-warehouse",
-		"VIEW_EDIT_FACILITY",
-		root.facility.ViewWarehouseHandler)
-
-	root.PostAuthorized(
-		"/api/facility/update-warehouse",
-		"VIEW_EDIT_FACILITY",
-		root.facility.UpdateWarehouseHandler)
-
-	root.PostAuthorized(
-		"/api/facility/delete-warehouse",
-		"VIEW_EDIT_FACILITY",
-		root.facility.DeleteWarehouseHandler)
-
-	root.GetAuthorized(
-		"/api/facility/view-customer-store",
-		"VIEW_EDIT_FACILITY",
-		root.facility.ViewCustomerStoreHandler)
-
-	root.GetAuthorized(
-		"/api/facility/query-simple-customer",
-		"VIEW_EDIT_FACILITY",
-		root.facility.QuerySimpleCustomerHandler)
-
-	root.PostAuthorized(
-		"/api/facility/add-customer-store",
-		"VIEW_EDIT_FACILITY",
-		root.facility.AddCustomerStoreHandler)
-
-	root.PostAuthorized(
-		"/api/facility/update-customer-store",
-		"VIEW_EDIT_FACILITY",
-		root.facility.UpdateCustomerStoreHandler)
-
-	root.PostAuthorized(
-		"/api/facility/delete-customer-store",
-		"VIEW_EDIT_FACILITY",
-		root.facility.DeleteCustomerStoreHandler)
+	SecurityRoutes(root)
+	AccountRoutes(root)
+	ProductRoutes(root)
+	FacilityRoutes(root)
+	ImportRoutes(root)
 
 	http.Handle("/", router)
 
