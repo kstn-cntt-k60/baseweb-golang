@@ -11,6 +11,11 @@ func FacilityRoutes(root *Root) {
 		"VIEW_EDIT_FACILITY",
 		root.facility.ViewWarehouseHandler)
 
+	root.GetAuthorized(
+		"/api/facility/get-warehouse/{warehouseId}",
+		"VIEW_EDIT_FACILITY",
+		root.facility.GetWarehouseHandler)
+
 	root.PostAuthorized(
 		"/api/facility/update-warehouse",
 		"VIEW_EDIT_FACILITY",

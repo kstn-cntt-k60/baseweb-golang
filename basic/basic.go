@@ -60,3 +60,19 @@ func (v *NullTime) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+func LowerBound(array []int, value int) int {
+	first := 0
+	last := len(array)
+
+	for first != last {
+		mid := (first + last) / 2
+		if array[mid] < value {
+			first = mid + 1
+		} else {
+			last = mid
+		}
+	}
+
+	return first
+}

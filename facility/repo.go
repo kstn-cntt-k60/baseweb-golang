@@ -22,14 +22,16 @@ type Repo struct {
 }
 
 func InitRepo(db *sqlx.DB) *Repo {
-	query := "select count(*) from facility where facility_type_id = 1"
+	query := "select count(*) from facility_warehouse"
 	countWarehouse, err := db.Preparex(query)
 	if err != nil {
 		log.Panic(err)
 	}
 
-	query = `select id, name, address, created_at, updated_at
-        from facility where facility_type_id = 1
+	query = `select f.id, f.name, f.address,
+        f.created_at, f.updated_at
+        from facility f 
+        inner join facility_warehouse fw on fw.id = f.id
         order by created_at desc
         limit ? offset ?`
 	viewWarehouse, err := db.Preparex(db.Rebind(query))
@@ -37,14 +39,16 @@ func InitRepo(db *sqlx.DB) *Repo {
 		log.Panic(err)
 	}
 
-	query = `select id, name, address, created_at, updated_at
-        from facility where facility_type_id = 1`
+	query = `select f.id, f.name, f.address,
+        f.created_at, f.updated_at
+        from facility f
+        inner join facility_warehouse fw on fw.id = f.id`
 	selectWarehouse, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panic(err)
 	}
 
-	query = "select count(*) from facility where facility_type_id = 2"
+	query = "select count(*) from facility_customer"
 	countCustomerStore, err := db.Preparex(query)
 	if err != nil {
 		log.Panic(err)
@@ -56,7 +60,6 @@ func InitRepo(db *sqlx.DB) *Repo {
         from facility f 
         inner join facility_customer fc on fc.id = f.id
         inner join customer c on c.id = fc.customer_id
-        where f.facility_type_id = 2
         order by f.created_at desc
         limit ? offset ?`
 	viewCustomerStore, err := db.Preparex(db.Rebind(query))
@@ -69,8 +72,7 @@ func InitRepo(db *sqlx.DB) *Repo {
         f.created_at, f.updated_at
         from facility f 
         inner join facility_customer fc on fc.id = f.id
-        inner join customer c on c.id = fc.customer_id
-        where f.facility_type_id = 2`
+        inner join customer c on c.id = fc.customer_id`
 	selectCustomerStore, err := db.Preparex(db.Rebind(query))
 	if err != nil {
 		log.Panic(err)
@@ -92,12 +94,33 @@ func (repo *Repo) InsertWarehouse(
 
 	log.Println("InsertWarehouse", warehouse.Name, warehouse.Address)
 
-	query := `insert into facility(
-        name, facility_type_id, address)
-        values (:name, 1, :address)`
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return err
+	}
+	warehouse.Id = id
 
-	_, err := repo.db.NamedExecContext(ctx, query, warehouse)
-	return err
+	tx, err := repo.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	query := `insert into facility(
+        id, name, facility_type_id, address)
+        values (:id, :name, 1, :address)`
+	_, err = tx.NamedExecContext(ctx, query, warehouse)
+	if err != nil {
+		return err
+	}
+
+	query = `insert into facility_warehouse(id) values (:id)`
+	_, err = tx.NamedExecContext(ctx, query, warehouse)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (repo *Repo) ViewWarehouse(
@@ -120,8 +143,10 @@ func (repo *Repo) ViewWarehouse(
 			&result, pageSize, page*pageSize)
 		return count, result, err
 	} else {
-		query := `select id, name, address, created_at, updated_at
-            from facility where facility_type_id = 1
+		query := `select f.id, f.name, f.address,
+            f.created_at, f.updated_at
+            from facility f
+            inner join facility_warehouse fw on fw.id = f.id
             order by %s %s
             limit ? offset ?`
 		query = fmt.Sprintf(query, sortedBy, sortOrder)
@@ -168,11 +193,26 @@ func (repo *Repo) DeleteWarehouse(
 
 	log.Println("DeleteWarehouse", id)
 
-	query := "delete from facility where id = ?"
+	tx, err := repo.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	query := "delete from facility_warehouse where id = ?"
 	query = repo.db.Rebind(query)
+	_, err = repo.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
 
-	_, err := repo.db.ExecContext(ctx, query, id)
-	return err
+	query = "delete from facility where id = ?"
+	query = repo.db.Rebind(query)
+	_, err = repo.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (repo *Repo) ViewCustomerStore(
@@ -202,7 +242,6 @@ func (repo *Repo) ViewCustomerStore(
             from facility f 
             inner join facility_customer fc on fc.id = f.id
             inner join customer c on c.id = fc.customer_id
-            where f.facility_type_id = 2
             order by f.%s %s
             limit ? offset ?`
 		query = fmt.Sprintf(query, sortedBy, sortOrder)
@@ -320,4 +359,22 @@ func (repo *Repo) DeleteCustomerStore(
 	}
 
 	return tx.Commit()
+}
+
+func (repo *Repo) GetWarehouse(
+	ctx context.Context, id uuid.UUID) (Warehouse, error) {
+
+	log.Println("GetWarehouse", id)
+
+	query := `select f.id, f.name, f.address,
+        f.created_at, f.updated_at
+        from facility f
+        inner join facility_warehouse fw on fw.id = f.id
+        where f.id = ?`
+	query = repo.db.Rebind(query)
+
+	warehouse := Warehouse{}
+	err := repo.db.GetContext(ctx, &warehouse, query, id)
+
+	return warehouse, err
 }

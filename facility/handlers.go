@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 type Root struct {
@@ -285,4 +288,23 @@ func (root *Root) DeleteCustomerStoreHandler(
 	}
 
 	return json.NewEncoder(w).Encode(okResponse)
+}
+
+func (root *Root) GetWarehouseHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	warehouseId, err := uuid.Parse(vars["warehouseId"])
+	if err != nil {
+		return err
+	}
+
+	warehouse, err := root.repo.GetWarehouse(ctx, warehouseId)
+	if err != nil {
+		return err
+	}
+
+	return json.NewEncoder(w).Encode(warehouse)
 }

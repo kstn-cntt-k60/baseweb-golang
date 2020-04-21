@@ -209,6 +209,9 @@ func (repo *Repo) SelectProductPriceFromIdList(
 	log.Println("SelectProductPriceFromIdList", productIdList)
 
 	result := make([]ProductPrice, 0)
+	if len(productIdList) == 0 {
+		return result, nil
+	}
 
 	query := `select p.id, p.product_id, p.price, 
         p.currency_uom_id, p.effective_from, p.expired_at,
