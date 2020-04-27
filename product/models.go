@@ -34,7 +34,7 @@ type ClientProduct struct {
 
 type ProductPrice struct {
 	Id            uuid.UUID       `json:"id" db:"id"`
-	Productid     int64           `json:"productId" db:"product_id"`
+	ProductId     int64           `json:"productId" db:"product_id"`
 	CurrencyUomId string          `json:"currencyUomId" db:"currency_uom_id"`
 	Price         decimal.Decimal `json:"price" db:"price"`
 	CreatedBy     string          `json:"createdBy" db:"created_by"`

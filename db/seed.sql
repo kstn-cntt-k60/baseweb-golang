@@ -81,12 +81,13 @@ VALUES
 INSERT INTO currency_uom(id)
 VALUES ('vnd'), ('usd');
 
-INSERT INTO sale_order_item_status(id, name)
+INSERT INTO sale_order_status(id, name)
 VALUES
     (1, 'CREATED'),
-    (2, 'EXPORTED'),
+    (2, 'ACCEPTED'),
     (3, 'SHIPPING'),
-    (4, 'COMPLETED');
+    (4, 'COMPLETED'),
+    (5, 'CANCELED');
 
 INSERT INTO day_of_week(day)
 VALUES (0), (1), (2), (3), (4), (5), (6);

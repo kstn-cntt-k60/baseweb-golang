@@ -13,6 +13,7 @@ import (
 	"baseweb/basic"
 	"baseweb/facility"
 	importProduct "baseweb/import"
+	"baseweb/order"
 	"baseweb/product"
 	"baseweb/security"
 
@@ -36,6 +37,8 @@ type Root struct {
 	facility      *facility.Root
 	importRepo    *importProduct.Repo
 	importProduct *importProduct.Root
+	orderRepo     *order.Repo
+	order         *order.Root
 }
 
 func UnwrapHandler(h basic.Handler) http.HandlerFunc {
@@ -121,6 +124,7 @@ func main() {
 	productRepo := product.InitRepo(db)
 	facilityRepo := facility.InitRepo(db)
 	importRepo := importProduct.InitRepo(db)
+	orderRepo := order.InitRepo(db)
 
 	router := mux.NewRouter()
 
@@ -138,6 +142,8 @@ func main() {
 		facility:      facility.InitRoot(facilityRepo),
 		importRepo:    importRepo,
 		importProduct: importProduct.InitRoot(importRepo),
+		orderRepo:     orderRepo,
+		order:         order.InitRoot(orderRepo),
 	}
 
 	root.GetAuthorized("/", "VIEW_EDIT_USER_LOGIN", root.homeHandler)
@@ -147,6 +153,7 @@ func main() {
 	ProductRoutes(root)
 	FacilityRoutes(root)
 	ImportRoutes(root)
+	OrderRoutes(root)
 
 	http.Handle("/", router)
 

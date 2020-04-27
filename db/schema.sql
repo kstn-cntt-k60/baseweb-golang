@@ -16,8 +16,8 @@ DROP TABLE IF EXISTS day_of_week;
 DROP TABLE IF EXISTS inventory_item_detail;
 
 DROP TABLE IF EXISTS sale_order_item;
-DROP TABLE IF EXISTS sale_order_item_status;
 DROP TABLE IF EXISTS sale_order;
+DROP TABLE IF EXISTS sale_order_status;
 
 DROP TABLE IF EXISTS warehouse_product_statistics;
 DROP TABLE IF EXISTS inventory_item;
@@ -154,8 +154,6 @@ CREATE TABLE product(
 
     unit_uom_id VARCHAR NOT NULL REFERENCES unit_uom(id),
 
-    current_price_id UUID,
-
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -259,14 +257,22 @@ CREATE TABLE warehouse_product_statistics(
 CREATE TRIGGER warehouse_product_statistics_updated_at BEFORE UPDATE ON
     warehouse_product_statistics FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
+CREATE TABLE sale_order_status(
+    id SMALLINT PRIMARY KEY,
+    name VARCHAR NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE sale_order(
     id BIGSERIAL PRIMARY KEY,
     customer_id UUID NOT NULL REFERENCES customer(id),
     original_warehouse_id UUID NOT NULL REFERENCES facility_warehouse(id),
     created_by_user_login_id UUID NOT NULL REFERENCES user_login(id),
 
-    ship_to_address VARCHAR,
+    ship_to_address VARCHAR NOT NULL,
     ship_to_facility_customer_id UUID REFERENCES facility_customer(id),
+
+    sale_order_status_id SMALLINT NOT NULL REFERENCES sale_order_status(id),
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -275,21 +281,12 @@ CREATE TABLE sale_order(
 CREATE TRIGGER sale_order_updated_at BEFORE UPDATE ON
     sale_order FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
-CREATE TABLE sale_order_item_status(
-    id SMALLINT PRIMARY KEY,
-    name VARCHAR NOT NULL UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 CREATE TABLE sale_order_item(
     sale_order_id BIGINT,
     sale_order_seq SMALLINT,
-    product_id INTEGER NOT NULL REFERENCES product(id),
 
     product_price_id UUID NOT NULL REFERENCES product_price(id),
     quantity DECIMAL NOT NULL,
-
-    sale_order_item_status_id SMALLINT NOT NULL REFERENCES sale_order_item_status(id),
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
