@@ -209,3 +209,82 @@ func (root *Root) ViewProductInfoByWarehouseHandler(
 	return json.NewEncoder(w).Encode(res)
 
 }
+
+func (root *Root) ViewSaleOrderHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+	query := r.URL.Query()
+
+	page, err := strconv.Atoi(query.Get("page"))
+	if err != nil {
+		page = 0
+	}
+
+	pageSize, err := strconv.Atoi(query.Get("pageSize"))
+	if err != nil {
+		pageSize = 10
+	}
+
+	sortedBy := "created_at"
+	sortedByQuery := query.Get("sortedBy")
+	if sortedByQuery == "updatedAt" {
+		sortedBy = "updated_at"
+	}
+
+	sortOrder := "desc"
+	sortOrderQuery := query.Get("sortOrder")
+	if sortOrderQuery == "asc" {
+		sortOrder = "asc"
+	}
+
+	var count int
+	var orders []SaleOrder
+
+	count, orders, err = root.repo.ViewSaleOrder(ctx,
+		page, pageSize, sortedBy, sortOrder)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		OrderCount int         `json:"orderCount"`
+		OrderList  []SaleOrder `json:"orderList"`
+	}
+
+	res := Response{
+		OrderCount: count,
+		OrderList:  orders,
+	}
+
+	return json.NewEncoder(w).Encode(res)
+}
+
+func (root *Root) ViewSingleSaleOrderHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+	query := r.URL.Query()
+
+	saleOrderId, err := strconv.ParseInt(query.Get("saleOrderId"), 10, 64)
+	if err != nil {
+		return err
+	}
+
+	order, items, err := root.repo.GetSaleOrder(ctx, saleOrderId)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		Order      SaleOrder       `json:"order"`
+		OrderItems []SaleOrderItem `json:"orderItems"`
+	}
+
+	res := Response{
+		Order:      order,
+		OrderItems: items,
+	}
+
+	return json.NewEncoder(w).Encode(res)
+}
