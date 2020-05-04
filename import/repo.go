@@ -2,7 +2,6 @@ package importProduct
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 
@@ -108,56 +107,35 @@ func (repo *Repo) InsertInventoryItem(
 		return err
 	}
 
-	stat := WarehouseProductStatistics{}
-	query = `select * from warehouse_product_statistics
-        where warehouse_id = ? and product_id = ?`
-	query = repo.db.Rebind(query)
-	err = tx.GetContext(ctx, &stat,
-		query, item.WarehouseId, item.ProductId)
-
-	if err != nil && err != sql.ErrNoRows {
+	stat := WarehouseProductStatistics{
+		WarehouseId:       item.WarehouseId,
+		ProductId:         item.ProductId,
+		QuantityTotal:     item.Quantity,
+		QuantityOnHand:    item.Quantity,
+		QuantityAvailable: item.Quantity,
+	}
+	query = `insert into warehouse_product_statistics(
+        warehouse_id, product_id, inventory_item_count,
+        quantity_total, quantity_on_hand,
+        quantity_available)
+        values(:warehouse_id, :product_id, 1, :quantity_total,
+        :quantity_on_hand, :quantity_available)
+        on conflict (warehouse_id, product_id) do update
+        set
+            inventory_item_count =
+                warehouse_product_statistics.inventory_item_count + 1,
+            quantity_total =
+                warehouse_product_statistics.quantity_total + :quantity_total,
+            quantity_on_hand =
+                warehouse_product_statistics.quantity_on_hand + :quantity_on_hand,
+            quantity_available =
+                warehouse_product_statistics.quantity_available + :quantity_available`
+	_, err = tx.NamedExecContext(ctx, query, stat)
+	if err != nil {
 		return err
 	}
 
-	if err == sql.ErrNoRows {
-		stat.WarehouseId = item.WarehouseId
-		stat.ProductId = item.ProductId
-		stat.InventoryItemCount = 1
-		stat.QuantityTotal = item.Quantity
-		stat.QuantityOnHand = item.Quantity
-		stat.QuantityAvailable = item.Quantity
-
-		query = `insert into warehouse_product_statistics(
-            warehouse_id, product_id,
-            inventory_item_count, quantity_total,
-            quantity_on_hand, quantity_available)
-            values (:warehouse_id, :product_id,
-            :inventory_item_count, :quantity_total,
-            :quantity_on_hand, :quantity_available)`
-		_, err = tx.NamedExecContext(ctx, query, stat)
-		if err != nil {
-			return err
-		}
-	} else {
-		stat.InventoryItemCount += 1
-		stat.QuantityTotal = stat.QuantityTotal.Add(item.Quantity)
-		stat.QuantityOnHand = stat.QuantityOnHand.Add(item.Quantity)
-		stat.QuantityAvailable = stat.QuantityAvailable.Add(item.Quantity)
-
-		query = `update warehouse_product_statistics
-            set inventory_item_count = :inventory_item_count,
-                quantity_total = :quantity_total,
-                quantity_on_hand = :quantity_on_hand,
-                quantity_available = :quantity_available
-            where warehouse_id = :warehouse_id and product_id = :product_id`
-		_, err = tx.NamedExecContext(ctx, query, stat)
-		if err != nil {
-			return err
-		}
-	}
-
 	return tx.Commit()
-
 }
 
 func (repo *Repo) SelectProductByWarehouse(

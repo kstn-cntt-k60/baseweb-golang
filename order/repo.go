@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/shopspring/decimal"
 )
 
 type Repo struct {
@@ -128,13 +127,8 @@ func (repo *Repo) AddOrder(
         values (?, ?, ?, ?)`
 	query = repo.db.Rebind(query)
 
-	availableQuery := `select quantity_available
-        from warehouse_product_statistics
-        where product_id = ? and warehouse_id = ?`
-	availableQuery = repo.db.Rebind(availableQuery)
-
 	updateAvailableQuery := `update warehouse_product_statistics
-        set quantity_available = ?
+        set quantity_available = quantity_available - ?
         where product_id = ? and warehouse_id = ?`
 	updateAvailableQuery = repo.db.Rebind(updateAvailableQuery)
 
@@ -145,20 +139,8 @@ func (repo *Repo) AddOrder(
 			return err
 		}
 
-		var quantityAvailable decimal.Decimal
-		err = tx.GetContext(ctx, &quantityAvailable, availableQuery,
-			product.Id, warehouseId)
-		if err != nil {
-			return err
-		}
-
-		if product.Quantity.GreaterThan(quantityAvailable) {
-			return quantityAvailableErr
-		}
-
 		_, err = tx.ExecContext(ctx, updateAvailableQuery,
-			quantityAvailable.Sub(product.Quantity),
-			product.Id, warehouseId)
+			product.Quantity, product.Id, warehouseId)
 		if err != nil {
 			return err
 		}

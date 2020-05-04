@@ -257,6 +257,15 @@ CREATE TABLE warehouse_product_statistics(
 CREATE TRIGGER warehouse_product_statistics_updated_at BEFORE UPDATE ON
     warehouse_product_statistics FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
+ALTER TABLE warehouse_product_statistics
+    ADD CONSTRAINT quantity_total_non_neg CHECK (quantity_total >= 0);
+
+ALTER TABLE warehouse_product_statistics
+    ADD CONSTRAINT quantity_on_hand_non_neg CHECK (quantity_on_hand >= 0);
+
+ALTER TABLE warehouse_product_statistics
+    ADD CONSTRAINT quantity_available_non_neg CHECK (quantity_available >= 0);
+
 CREATE TABLE sale_order_status(
     id SMALLINT PRIMARY KEY,
     name VARCHAR NOT NULL UNIQUE,
