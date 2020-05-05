@@ -54,14 +54,18 @@ VALUES
 SELECT setval('product_id_seq', 2, true);
 
 INSERT INTO inventory_item(
-    id, product_id, warehouse_id, quantity, unit_cost, currency_uom_id)
+    id, product_id, warehouse_id, quantity, quantity_on_hand, unit_cost, currency_uom_id)
 VALUES
-    (1, 1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 10, 100000, 'vnd');
+    (1, 1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 10, 10, 100000, 'vnd'),
+    (2, 2, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 23, 23, 55000, 'vnd'),
+    (3, 1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 13, 13, 55000, 'vnd'),
+    (4, 1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 17, 17, 58000, 'vnd');
+
+SELECT setval('inventory_item_id_seq', 4, true);
 
 INSERT INTO warehouse_product_statistics(
     warehouse_id, product_id, inventory_item_count,
     quantity_total, quantity_on_hand, quantity_available)
 VALUES
-    ('28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 1, 1, 10, 10, 10);
-
-SELECT setval('inventory_item_id_seq', 1, true);
+    ('28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 1, 3, 40, 40, 40),
+    ('28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 2, 1, 23, 23, 23);

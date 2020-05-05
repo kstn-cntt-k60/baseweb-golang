@@ -228,13 +228,16 @@ CREATE TABLE inventory_item(
     warehouse_id UUID NOT NULL REFERENCES facility_warehouse(id),
 
     quantity DECIMAL NOT NULL,
-    -- quantity_on_hand DECIMAL NOT NULL,
+    quantity_on_hand DECIMAL NOT NULL,
     unit_cost DECIMAL NOT NULL,
     currency_uom_id VARCHAR NOT NULL REFERENCES currency_uom(id),
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX idx_inventory_item_export ON
+    inventory_item(product_id, warehouse_id, quantity_on_hand);
 
 CREATE TRIGGER inventory_item_updated_at BEFORE UPDATE ON
     inventory_item FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
@@ -291,11 +294,12 @@ CREATE TRIGGER sale_order_updated_at BEFORE UPDATE ON
     sale_order FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
 CREATE TABLE sale_order_item(
-    sale_order_id BIGINT,
+    sale_order_id BIGINT REFERENCES sale_order(id),
     sale_order_seq SMALLINT,
 
     product_price_id UUID NOT NULL REFERENCES product_price(id),
     quantity DECIMAL NOT NULL,
+    exported BOOL NOT NULL DEFAULT FALSE,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -307,7 +311,7 @@ CREATE TRIGGER sale_order_item_updated_at BEFORE UPDATE ON
     sale_order_item FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
 CREATE TABLE inventory_item_detail(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v1(),
+    id BIGSERIAL PRIMARY KEY,
     inventory_item_id BIGINT NOT NULL REFERENCES inventory_item(id),
     exported_quantity DECIMAL NOT NULL,
     effective_from TIMESTAMPTZ NOT NULL DEFAULT now(),

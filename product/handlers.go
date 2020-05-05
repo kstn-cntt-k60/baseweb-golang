@@ -1,6 +1,7 @@
 package product
 
 import (
+	"baseweb/basic"
 	"baseweb/security"
 	"encoding/json"
 	"net/http"
@@ -16,14 +17,6 @@ func InitRoot(repo *Repo) *Root {
 	return &Root{
 		repo: repo,
 	}
-}
-
-type OkResponse struct {
-	Status string `json:"status"`
-}
-
-var okResponse = OkResponse{
-	Status: "ok",
 }
 
 func (root *Root) AddProductHandler(
@@ -44,7 +37,7 @@ func (root *Root) AddProductHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) ViewProductHandler(
@@ -144,7 +137,7 @@ func (root *Root) DeleteProductHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) ViewProductPricingHandler(

@@ -12,14 +12,6 @@ type Root struct {
 	repo *Repo
 }
 
-type OkResponse struct {
-	Status string `json:"status"`
-}
-
-var okResponse = OkResponse{
-	Status: "ok",
-}
-
 func InitRoot(repo *Repo) *Root {
 	return &Root{
 		repo: repo,

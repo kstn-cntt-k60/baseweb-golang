@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 type Repo struct {
@@ -235,40 +236,76 @@ func (repo *Repo) SelectProductInfoByWarehouse(
 func (repo *Repo) ViewSaleOrder(
 	ctx context.Context,
 	page, pageSize int,
-	sortedBy, sortOrder string) (int, []SaleOrder, error) {
-
-	log.Println("ViewSaleOrder", page, pageSize, sortedBy, sortOrder)
+	sortedBy, sortOrder string,
+	statusId int,
+) (int, []SaleOrder, error) {
+	log.Println("ViewSaleOrder", page, pageSize, sortedBy, sortOrder, statusId)
 
 	var count int
 	orders := make([]SaleOrder, 0)
+	var err error
 
-	countQuery := `select count(*) from sale_order`
-	err := repo.db.GetContext(ctx, &count, countQuery)
-	if err != nil {
-		return count, orders, err
+	if statusId != 0 {
+		countQuery := repo.db.Rebind(`
+            select count(*) from sale_order
+            where sale_order_status_id = ?
+            `)
+		err = repo.db.GetContext(ctx, &count, countQuery, statusId)
+		if err != nil {
+			return count, orders, err
+		}
+
+		query := `select o.id, c.name as customer,
+            fw.name as warehouse, u.username as created_by,
+            o.ship_to_address,
+            coalesce(fc.name, '') as customer_store,
+            o.sale_order_status_id,
+            o.created_at, o.updated_at
+            from sale_order o
+                inner join customer c on c.id = o.customer_id
+                inner join user_login u on u.id = o.created_by_user_login_id
+                inner join facility_warehouse w on w.id = o.original_warehouse_id
+                inner join facility fw on fw.id = w.id
+                left join (
+                    select f.id, f.name from facility f
+                    inner join facility_customer fc on fc.id = f.id
+                ) fc on fc.id = o.ship_to_facility_customer_id
+            where sale_order_status_id = ?
+            order by o.%s %s
+            offset ? limit ?`
+		query = fmt.Sprintf(query, sortedBy, sortOrder)
+		query = repo.db.Rebind(query)
+		err = repo.db.SelectContext(ctx, &orders, query,
+			statusId, page*pageSize, pageSize)
+	} else {
+		countQuery := `select count(*) from sale_order`
+		err = repo.db.GetContext(ctx, &count, countQuery)
+		if err != nil {
+			return count, orders, err
+		}
+
+		query := `select o.id, c.name as customer,
+            fw.name as warehouse, u.username as created_by,
+            o.ship_to_address,
+            coalesce(fc.name, '') as customer_store,
+            o.sale_order_status_id,
+            o.created_at, o.updated_at
+            from sale_order o
+                inner join customer c on c.id = o.customer_id
+                inner join user_login u on u.id = o.created_by_user_login_id
+                inner join facility_warehouse w on w.id = o.original_warehouse_id
+                inner join facility fw on fw.id = w.id
+                left join (
+                    select f.id, f.name from facility f
+                    inner join facility_customer fc on fc.id = f.id
+                ) fc on fc.id = o.ship_to_facility_customer_id
+            order by o.%s %s
+            offset ? limit ?`
+		query = fmt.Sprintf(query, sortedBy, sortOrder)
+		query = repo.db.Rebind(query)
+		err = repo.db.SelectContext(ctx, &orders, query,
+			page*pageSize, pageSize)
 	}
-
-	query := `select o.id, c.name as customer,
-        fw.name as warehouse, u.username as created_by,
-        o.ship_to_address,
-        coalesce(fc.name, '') as customer_store,
-        o.sale_order_status_id,
-        o.created_at, o.updated_at
-        from sale_order o
-            inner join customer c on c.id = o.customer_id
-            inner join user_login u on u.id = o.created_by_user_login_id
-            inner join facility_warehouse w on w.id = o.original_warehouse_id
-            inner join facility fw on fw.id = w.id
-            left join (
-                select f.id, f.name from facility f
-                inner join facility_customer fc on fc.id = f.id
-            ) fc on fc.id = o.ship_to_facility_customer_id
-        order by o.%s %s
-        offset ? limit ?`
-	query = fmt.Sprintf(query, sortedBy, sortOrder)
-	query = repo.db.Rebind(query)
-	err = repo.db.SelectContext(ctx, &orders, query,
-		page*pageSize, pageSize)
 
 	return count, orders, err
 }
@@ -306,7 +343,7 @@ func (repo *Repo) GetSaleOrder(
 
 	query = `select i.sale_order_id, i.sale_order_seq,
         p.name as product_name, pp.price, pp.currency_uom_id,
-        i.quantity, pp.effective_from
+        i.quantity, pp.effective_from, i.exported
         from sale_order_item i
             inner join product_price pp on pp.id = i.product_price_id
             inner join product p on p.id = pp.product_id
@@ -316,4 +353,82 @@ func (repo *Repo) GetSaleOrder(
 	err = repo.db.SelectContext(ctx, &items, query, saleOrderId)
 
 	return order, items, err
+}
+
+func (repo *Repo) AcceptSalesOrder(ctx context.Context, id int64) error {
+	log.Println("AcceptSalesOrder", id)
+
+	query := repo.db.Rebind(`
+        update sale_order
+        set sale_order_status_id = 2
+        where id = ? and sale_order_status_id = 1
+        `)
+
+	_, err := repo.db.ExecContext(ctx, query, id)
+	return err
+}
+
+var cancelErr = errors.New("cancel wrong sales order")
+
+func (repo *Repo) CancelSalesOrder(ctx context.Context, id int64) error {
+	log.Println("CancelSalesOrder", id)
+
+	tx, err := repo.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	query := repo.db.Rebind(`
+        update sale_order
+        set sale_order_status_id = 5
+        where id = ? and sale_order_status_id = 1
+        `)
+
+	result, err := tx.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	rowAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowAffected < 1 {
+		return cancelErr
+	}
+
+	type OrderItem struct {
+		ProductId   int64           `db:"product_id"`
+		WarehouseId uuid.UUID       `db:"original_warehouse_id"`
+		Quantity    decimal.Decimal `db:"quantity"`
+	}
+
+	query = repo.db.Rebind(`
+        select pp.product_id, o.original_warehouse_id, oi.quantity
+        from sale_order_item oi
+        inner join product_price pp on pp.id = oi.product_price_id
+        inner join sale_order o on o.id = oi.sale_order_id
+        where sale_order_id = ?
+        `)
+
+	items := make([]OrderItem, 0)
+	err = tx.SelectContext(ctx, &items, query, id)
+	if err != nil {
+		return err
+	}
+
+	updateAvailableQuery := `
+        update warehouse_product_statistics
+        set quantity_available = quantity_available + :quantity
+        where product_id = :product_id
+            and warehouse_id = :original_warehouse_id
+        `
+	for _, item := range items {
+		_, err = tx.NamedExecContext(ctx, updateAvailableQuery, item)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }

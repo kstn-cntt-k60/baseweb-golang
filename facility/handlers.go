@@ -1,6 +1,7 @@
 package facility
 
 import (
+	"baseweb/basic"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -19,14 +20,6 @@ func InitRoot(repo *Repo) *Root {
 	}
 }
 
-type OkResponse struct {
-	Status string `json:"status"`
-}
-
-var okResponse = OkResponse{
-	Status: "ok",
-}
-
 func (root *Root) AddWarehouseHandler(
 	w http.ResponseWriter, r *http.Request) error {
 
@@ -43,7 +36,7 @@ func (root *Root) AddWarehouseHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) ViewWarehouseHandler(
@@ -128,7 +121,7 @@ func (root *Root) UpdateWarehouseHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) DeleteWarehouseHandler(
@@ -147,7 +140,7 @@ func (root *Root) DeleteWarehouseHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) ViewCustomerStoreHandler(
@@ -249,7 +242,7 @@ func (root *Root) AddCustomerStoreHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) UpdateCustomerStoreHandler(
@@ -268,7 +261,7 @@ func (root *Root) UpdateCustomerStoreHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) DeleteCustomerStoreHandler(
@@ -287,7 +280,7 @@ func (root *Root) DeleteCustomerStoreHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) GetWarehouseHandler(

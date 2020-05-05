@@ -1,6 +1,7 @@
 package order
 
 import (
+	"baseweb/basic"
 	"baseweb/security"
 	"encoding/json"
 	"errors"
@@ -19,14 +20,6 @@ func InitRoot(repo *Repo) *Root {
 	return &Root{
 		repo: repo,
 	}
-}
-
-type OkResponse struct {
-	Status string `json:"status"`
-}
-
-var okResponse = OkResponse{
-	Status: "ok",
 }
 
 func (root *Root) ViewCustomerStoreByCustomerHandler(
@@ -135,7 +128,7 @@ func (root *Root) AddOrderHandler(
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(okResponse)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) ViewProductInfoByWarehouseHandler(
@@ -238,11 +231,16 @@ func (root *Root) ViewSaleOrderHandler(
 		sortOrder = "asc"
 	}
 
+	statusId, err := strconv.Atoi(query.Get("statusId"))
+	if err != nil || statusId < 0 || statusId > 5 {
+		statusId = 0
+	}
+
 	var count int
 	var orders []SaleOrder
 
 	count, orders, err = root.repo.ViewSaleOrder(ctx,
-		page, pageSize, sortedBy, sortOrder)
+		page, pageSize, sortedBy, sortOrder, statusId)
 	if err != nil {
 		return err
 	}
@@ -287,4 +285,50 @@ func (root *Root) ViewSingleSaleOrderHandler(
 	}
 
 	return json.NewEncoder(w).Encode(res)
+}
+
+func (root *Root) AcceptSalesOrderHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	type Request struct {
+		Id int64 `json:"id"`
+	}
+
+	req := Request{}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		return err
+	}
+
+	err = root.repo.AcceptSalesOrder(ctx, req.Id)
+	if err != nil {
+		return err
+	}
+
+	return basic.ReturnOk(w)
+}
+
+func (root *Root) CancelSalesOrderHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	type Request struct {
+		Id int64 `json:"id"`
+	}
+
+	req := Request{}
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		return err
+	}
+
+	err = root.repo.CancelSalesOrder(ctx, req.Id)
+	if err != nil {
+		return err
+	}
+
+	return basic.ReturnOk(w)
 }

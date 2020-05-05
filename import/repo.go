@@ -98,9 +98,13 @@ func (repo *Repo) InsertInventoryItem(
 	}
 	defer tx.Rollback()
 
+	item.QuantityOnHand = item.Quantity
+
 	query := `insert into inventory_item(product_id,
-    warehouse_id, quantity, unit_cost, currency_uom_id)
-    values (:product_id, :warehouse_id, :quantity,
+        warehouse_id, quantity, quantity_on_hand,
+        unit_cost, currency_uom_id)
+    values (:product_id, :warehouse_id,
+        :quantity, :quantity_on_hand,
         :unit_cost, :currency_uom_id)`
 	_, err = tx.NamedExecContext(ctx, query, item)
 	if err != nil {

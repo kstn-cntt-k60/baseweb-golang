@@ -25,4 +25,14 @@ func OrderRoutes(root *Root) {
 		"/api/order/view-single-sale-order",
 		"VIEW_EDIT_ORDER",
 		root.order.ViewSingleSaleOrderHandler)
+
+	root.PostAuthorized(
+		"/api/order/accept-sales-order",
+		"VIEW_EDIT_ORDER",
+		root.order.AcceptSalesOrderHandler)
+
+	root.PostAuthorized(
+		"/api/order/cancel-sales-order",
+		"VIEW_EDIT_ORDER",
+		root.order.CancelSalesOrderHandler)
 }

@@ -57,4 +57,5 @@ type SaleOrderItem struct {
 	CurrencyUomId string          `json:"currencyUomId" db:"currency_uom_id"`
 	Quantity      decimal.Decimal `json:"quantity" db:"quantity"`
 	EffectiveFrom time.Time       `json:"effectiveFrom" db:"effective_from"`
+	Exported      bool            `json:"exported" db:"exported"`
 }

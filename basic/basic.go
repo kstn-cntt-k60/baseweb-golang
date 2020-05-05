@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+type OkResponse struct {
+	Status string `json:"status"`
+}
+
+var okResponse = OkResponse{
+	Status: "ok",
+}
+
+func ReturnOk(w http.ResponseWriter) error {
+	return json.NewEncoder(w).Encode(okResponse)
+}
+
 type Handler func(http.ResponseWriter, *http.Request) error
 
 type NullString struct {
