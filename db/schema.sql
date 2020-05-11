@@ -39,6 +39,7 @@ DROP TABLE IF EXISTS sales_route_planning_period;
 DROP TABLE IF EXISTS sales_route_config_day;
 DROP TABLE IF EXISTS sales_route_config;
 DROP TABLE IF EXISTS day_of_week;
+DROP TABLE IF EXISTS salesman;
 
 DROP TABLE IF EXISTS inventory_item_detail;
 
@@ -373,13 +374,24 @@ CREATE TABLE inventory_item_detail(
 CREATE TRIGGER inventory_item_detail_updated_at BEFORE UPDATE ON
     inventory_item_detail FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
+CREATE TABLE salesman(
+    id UUID PRIMARY KEY REFERENCES user_login(id),
+    created_by_user_login_id UUID NOT NULL REFERENCES user_login(id),
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TRIGGER salesman_updated_at BEFORE UPDATE ON
+    salesman FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
+
 CREATE TABLE day_of_week(
     day SMALLINT PRIMARY KEY
 );
 
 CREATE TABLE sales_route_config(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v1(),
-    is_enabled BOOLEAN NOT NULL,
+    id SERIAL PRIMARY KEY,
+    is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     repeat_week SMALLINT NOT NULL,
     created_by_user_login_id UUID NOT NULL REFERENCES user_login(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -390,18 +402,18 @@ CREATE TRIGGER sales_route_config_updated_at BEFORE UPDATE ON
     sales_route_config FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
 CREATE TABLE sales_route_config_day(
-    config_id UUID REFERENCES sales_route_config(id),
+    config_id INT REFERENCES sales_route_config(id),
     day SMALLINT REFERENCES day_of_week(day),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT pk_sales_route_config_day PRIMARY KEY (config_id, day)
 );
 
 CREATE TABLE sales_route_planning_period(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v1(),
+    id SERIAL PRIMARY KEY,
     from_date DATE NOT NULL,
     thru_date DATE NOT NULL,
     created_by_user_login_id UUID NOT NULL REFERENCES user_login(id),
-    description VARCHAR NOT NULL,
+    description VARCHAR NOT NULL DEFAULT '',
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -411,11 +423,11 @@ CREATE TRIGGER sales_route_planning_period_updated_at BEFORE UPDATE ON
     sales_route_planning_period FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
 CREATE TABLE sales_route_detail(
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v1(),
-    config_id UUID NOT NULL REFERENCES sales_route_config(id),
-    planning_period_id UUID NOT NULL REFERENCES sales_route_planning_period(id),
+    id SERIAL PRIMARY KEY,
+    config_id INT NOT NULL REFERENCES sales_route_config(id),
+    planning_period_id INT NOT NULL REFERENCES sales_route_planning_period(id),
     customer_id UUID NOT NULL REFERENCES customer(id),
-    salesman_id UUID NOT NULL REFERENCES person(id),
+    salesman_id UUID NOT NULL REFERENCES salesman(id),
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -427,7 +439,8 @@ CREATE TRIGGER sales_route_detail_updated_at BEFORE UPDATE ON
     sales_route_detail FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
 CREATE TABLE salesman_checkin_history(
-    sales_route_detail_id UUID PRIMARY KEY REFERENCES sales_route_detail(id),
+    sales_route_detail_id INT PRIMARY KEY REFERENCES sales_route_detail(id),
     checkin_time TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+

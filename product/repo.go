@@ -143,7 +143,7 @@ func (repo *Repo) ViewProduct(
                 on u.id = p.created_by_user_login_id
             order by p.%s %s
             limit ? offset ?`, sortedBy, sortOrder)
-		log.Println("[SQL", query)
+		log.Println("[SQL]", query)
 
 		err = repo.db.SelectContext(ctx, &result,
 			repo.db.Rebind(query), pageSize, page*pageSize)

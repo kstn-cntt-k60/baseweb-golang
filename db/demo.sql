@@ -57,14 +57,12 @@ VALUES
 SELECT setval('product_id_seq', 2, true);
 
 INSERT INTO inventory_item(
-    id, product_id, warehouse_id, quantity, quantity_on_hand, unit_cost, currency_uom_id)
+    product_id, warehouse_id, quantity, quantity_on_hand, unit_cost, currency_uom_id)
 VALUES
-    (1, 1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 10, 10, 100000, 'vnd'),
-    (2, 2, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 23, 23, 55000, 'vnd'),
-    (3, 1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 13, 13, 55000, 'vnd'),
-    (4, 1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 17, 17, 58000, 'vnd');
-
-SELECT setval('inventory_item_id_seq', 4, true);
+    (1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 10, 10, 100000, 'vnd'),
+    (2, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 23, 23, 55000, 'vnd'),
+    (1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 13, 13, 55000, 'vnd'),
+    (1, '28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 17, 17, 58000, 'vnd');
 
 INSERT INTO warehouse_product_statistics(
     warehouse_id, product_id, inventory_item_count,
@@ -72,3 +70,52 @@ INSERT INTO warehouse_product_statistics(
 VALUES
     ('28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 1, 3, 40, 40, 40),
     ('28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 2, 1, 23, 23, 23);
+
+INSERT INTO salesman (id, created_by_user_login_id) 
+VALUES 
+    ('c618b8fc-5872-11ea-adab-14dda9bea6d7', 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
+    ('51074f18-5851-11ea-98c8-14dda9bea6d7', 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7');
+
+
+INSERT INTO sales_route_config (id, repeat_week, created_by_user_login_id)
+VALUES 
+    (1, 1, 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
+    (2, 1, 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
+    (3, 2, 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7');
+
+SELECT setval('sales_route_config_id_seq', 3, true);
+
+INSERT INTO sales_route_config_day (config_id, day)
+VALUES
+    (1, 1),
+    (1, 2),
+    (2, 2),
+    (3, 1),
+    (3, 5);
+
+INSERT INTO sales_route_planning_period (id, from_date, thru_date, created_by_user_login_id)
+VALUES
+    (1, '2020-12-17', '2020-12-30', 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
+    (2, '2020-12-17', '2021-5-6', 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
+    (3, '2020-12-17', '2020-12-30', '51074f18-5851-11ea-98c8-14dda9bea6d7');
+
+SELECT setval('sales_route_planning_period_id_seq', 3, true);
+
+INSERT INTO sales_route_detail (id, planning_period_id, config_id, customer_id, salesman_id)
+VALUES
+    (1, 1, 1, '164f0e68-5a01-11ea-b26d-14dda9bea6d7', '51074f18-5851-11ea-98c8-14dda9bea6d7'),
+    (2, 2, 2, '164f0e68-5a01-11ea-b26d-14dda9bea6d7', 'c618b8fc-5872-11ea-adab-14dda9bea6d7'),
+    (3, 2, 2, '47aacbac-5c39-11ea-98a0-14dda9bea6d7', 'c618b8fc-5872-11ea-adab-14dda9bea6d7');
+
+SELECT setval('sales_route_detail_id_seq', 3, true);
+
+INSERT INTO salesman_checkin_history(sales_route_detail_id)
+VALUES
+    (1), (2), (3);
+
+
+    
+
+
+
+
