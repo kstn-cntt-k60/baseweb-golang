@@ -153,39 +153,6 @@ func (repo *Repo) InsertCustomer(ctx context.Context,
 	return err
 }
 
-func (repo *Repo) GetParty(ctx context.Context,
-	id uuid.UUID) (Party, error) {
-
-	log.Println("GetParty", id)
-
-	party := Party{}
-	query := "select * from party where id = ?"
-	err := repo.db.GetContext(ctx, &party, repo.db.Rebind(query), id)
-	return party, err
-}
-
-func (repo *Repo) GetPerson(ctx context.Context,
-	id uuid.UUID) (Person, error) {
-
-	log.Println("GetPerson", id)
-
-	query := "select * from person where id = ?"
-	person := Person{}
-	err := repo.db.GetContext(ctx, &person, repo.db.Rebind(query), id)
-	return person, err
-}
-
-func (repo *Repo) GetCustomer(ctx context.Context,
-	id uuid.UUID) (Customer, error) {
-
-	log.Println("GetCustomer", id)
-
-	c := Customer{}
-	query := "select * from customer where id = ?"
-	err := repo.db.GetContext(ctx, &c, repo.db.Rebind(query), id)
-	return c, err
-}
-
 func (repo *Repo) ViewPerson(ctx context.Context,
 	page uint, pageSize uint,
 	sortedBy, sortOrder string) (uint, []ClientPerson, error) {
@@ -214,7 +181,6 @@ func (repo *Repo) ViewPerson(ctx context.Context,
                 inner join party on party.id = person.id
                 order by person.%s %s
                 limit ? offset ?`, sortedBy, sortOrder)
-		log.Println("[SQL]", query)
 
 		err = repo.db.SelectContext(ctx, &result,
 			repo.db.Rebind(query), pageSize, page*pageSize)
@@ -224,12 +190,13 @@ func (repo *Repo) ViewPerson(ctx context.Context,
 }
 
 func (repo *Repo) ViewCustomer(ctx context.Context,
-	page uint, pageSize uint,
-	sortedBy, sortOrder string) (uint, []ClientCustomer, error) {
+	page int, pageSize int,
+	sortedBy, sortOrder string,
+) (int, []ClientCustomer, error) {
 
 	log.Println("ViewCustomer", page, pageSize, sortedBy, sortOrder)
 
-	var count uint = 0
+	var count int = 0
 	result := make([]ClientCustomer, 0)
 
 	err := repo.countCustomer.GetContext(ctx, &count)
@@ -252,12 +219,47 @@ func (repo *Repo) ViewCustomer(ctx context.Context,
             limit ? offset ?`,
 			sortedBy, sortOrder)
 
-		log.Println("[SQL]", query)
-
 		err = repo.db.SelectContext(ctx, &result,
 			repo.db.Rebind(query), pageSize, page*pageSize)
 		return count, result, err
 	}
+}
+
+func (repo *Repo) ViewCustomerWithName(ctx context.Context,
+	page int, pageSize int,
+	sortedBy, sortOrder string,
+	searchText string,
+) (int, []ClientCustomer, error) {
+
+	log.Println("ViewCustomerWithName",
+		page, pageSize, sortedBy, sortOrder, searchText)
+
+	var count int = 0
+	result := make([]ClientCustomer, 0)
+
+	query := repo.db.Rebind(`
+        select count(*) from customer
+        where name_tsvector @@ plainto_tsquery(?)
+        `)
+	err := repo.db.GetContext(ctx, &count, query, searchText)
+	if err != nil {
+		return count, result, err
+	}
+
+	query = `select c.id, c.name,
+        c.created_at, c.updated_at,
+        p.description
+        from customer c
+        inner join party p on p.id = c.id
+        where name_tsvector @@ plainto_tsquery(?)
+        order by c.%s %s
+        limit ? offset ?`
+	query = fmt.Sprintf(query, sortedBy, sortOrder)
+	query = repo.db.Rebind(query)
+	err = repo.db.SelectContext(ctx, &result, query,
+		searchText, pageSize, page*pageSize)
+	return count, result, err
+
 }
 
 func (repo *Repo) UpdatePerson(
@@ -348,16 +350,21 @@ func (repo *Repo) DeleteCustomer(ctx context.Context, id uuid.UUID) error {
 	return tx.Commit()
 }
 
-func (repo *Repo) SelectSimplePerson(
-	ctx context.Context) ([]SimplePerson, error) {
+func (repo *Repo) SelectSimplePersonWithFullName(
+	ctx context.Context, fullName string,
+) ([]SimplePerson, error) {
 
-	log.Println("SelectSimplePerson")
+	log.Println("SelectSimplePersonWithFullName", fullName)
 
-	query := `select id, first_name, middle_name, last_name,
-            birth_date, gender_id from person`
+	query := repo.db.Rebind(`
+        select id, first_name, middle_name, last_name,
+            birth_date, gender_id
+        from person
+        where full_name_tsvector @@ plainto_tsquery(vn_unaccent(?))
+        `)
 
 	result := make([]SimplePerson, 0)
-	return result, repo.db.SelectContext(ctx, &result, query)
+	return result, repo.db.SelectContext(ctx, &result, query, fullName)
 }
 
 func (repo *Repo) InsertUserLogin(
@@ -406,7 +413,6 @@ func (repo *Repo) ViewUserLogin(
             inner join person p on u.person_id = p.id
             order by u.%s %s
             limit ? offset ?`, sortedBy, sortOrder)
-		log.Println("[SQL]", query)
 
 		err = repo.db.SelectContext(ctx, &result,
 			repo.db.Rebind(query), pageSize, page*pageSize)
@@ -467,4 +473,44 @@ func (repo *Repo) DeleteUserLogin(
 	_, err := repo.db.ExecContext(ctx, repo.db.Rebind(query), id)
 
 	return err
+}
+
+func (repo *Repo) ViewPersonWithFullName(ctx context.Context,
+	page uint, pageSize uint,
+	sortedBy, sortOrder string,
+	fullName string,
+) (uint, []ClientPerson, error) {
+
+	log.Println("ViewPersonWithFullName", page, pageSize,
+		sortedBy, sortOrder, fullName)
+
+	var count uint = 0
+	result := make([]ClientPerson, 0)
+
+	query := repo.db.Rebind(`
+        select count(*) from person
+        where full_name_tsvector @@ plainto_tsquery(vn_unaccent(?))
+        `)
+	err := repo.db.GetContext(ctx, &count, query, fullName)
+	if err != nil {
+		return count, result, err
+	}
+
+	query = `select person.id,
+        first_name, middle_name, last_name,
+        gender_id, birth_date,
+        person.created_at, person.updated_at,
+        party.description
+        from person
+        inner join party on party.id = person.id
+        where full_name_tsvector @@ plainto_tsquery(vn_unaccent(?))
+        order by person.%s %s
+        limit ? offset ?`
+	query = fmt.Sprintf(query, sortedBy, sortOrder)
+	query = repo.db.Rebind(query)
+
+	err = repo.db.SelectContext(ctx, &result,
+		repo.db.Rebind(query), fullName, pageSize, page*pageSize)
+
+	return count, result, err
 }

@@ -1,10 +1,37 @@
+CREATE OR REPLACE FUNCTION vn_unaccent(TEXT)
+RETURNS TEXT AS $$
+    SELECT LOWER(TRANSLATE($1,
+    '¹²³ÀÁẢẠÂẤẦẨẬẪÃÄÅÆàáảạâấầẩẫậãäåæĀāĂẮẰẲẴẶăắằẳẵặĄąÇçĆćĈĉĊċČčĎďĐđÈÉẸÊẾỀỄỆËèéẹêềếễệëĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨÌÍỈỊÎÏìíỉịîïĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłÑñŃńŅņŇňŉŊŋÒÓỎỌÔỐỒỔỖỘỐỒỔỖỘƠỚỜỞỠỢÕÖòóỏọôốồổỗộơớờỡợởõöŌōŎŏŐőŒœØøŔŕŖŗŘřßŚśŜŝŞşŠšŢţŤťŦŧÙÚỦỤƯỪỨỬỮỰÛÜùúủụûưứừửữựüŨũŪūŬŭŮůŰűŲųŴŵÝýÿŶŷŸŹźŻżŽžёЁ',
+    '123AAAAAAAAAAAAAAaaaaaaaaaaaaaaAaAAAAAAaaaaaaAaCcCcCcCcCcDdDdEEEEEEEEEeeeeeeeeeEeEeEeEeEeGgGgGgGgHhHhIIIIIIIiiiiiiiIiIiIiIiIiJjKkkLlLlLlLlLlNnNnNnNnnNnOOOOOOOOOOOOOOOOOOOOOOOooooooooooooooooooOoOoOoEeOoRrRrRrSSsSsSsSsTtTtTtUUUUUUUUUUUUuuuuuuuuuuuuUuUuUuUuUuUuWwYyyYyYZzZzZzеЕ'));
+$$ LANGUAGE sql IMMUTABLE;
+
 CREATE OR REPLACE FUNCTION updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = now();
     RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION person_full_name_tsvector()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.full_name_tsvector =
+        setweight(to_tsvector(vn_unaccent(NEW.first_name)), 'A') ||
+        setweight(to_tsvector(vn_unaccent(NEW.last_name)), 'B') ||
+        setweight(to_tsvector(vn_unaccent(NEW.middle_name)), 'C');
+    RETURN NEW;
+END
+$$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION customer_name_tsvector()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.name_tsvector =
+        to_tsvector(vn_unaccent(NEW.name));
+    RETURN NEW;
+END
+$$ LANGUAGE 'plpgsql';
 
 DROP TABLE IF EXISTS salesman_checkin_history;
 DROP TABLE IF EXISTS sales_route_detail;
@@ -86,6 +113,7 @@ CREATE TABLE person(
     first_name VARCHAR NOT NULL,
     middle_name VARCHAR NOT NULL DEFAULT '',
     last_name VARCHAR NOT NULL,
+    full_name_tsvector TSVECTOR NOT NULL DEFAULT to_tsvector(''),
     gender_id SMALLINT NOT NULL REFERENCES gender(id),
     birth_date DATE NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -95,15 +123,30 @@ CREATE TABLE person(
 CREATE TRIGGER person_updated_at BEFORE UPDATE ON
     person FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
+CREATE TRIGGER person_full_name_tsvector
+    BEFORE INSERT OR UPDATE ON person FOR EACH ROW
+    EXECUTE PROCEDURE person_full_name_tsvector();
+
+CREATE INDEX idx_person_full_name_tsvector ON person 
+    USING gin(full_name_tsvector);
+
 CREATE TABLE customer(
     id UUID PRIMARY KEY REFERENCES party(id),
     name VARCHAR NOT NULL,
+    name_tsvector TSVECTOR NOT NULL DEFAULT to_tsvector(''),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TRIGGER customer_updated_at BEFORE UPDATE ON
     customer FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
+
+CREATE TRIGGER customer_name_tsvector
+    BEFORE INSERT OR UPDATE ON customer FOR EACH ROW
+    EXECUTE PROCEDURE customer_name_tsvector();
+
+CREATE INDEX idx_customer_name_tsvector ON customer 
+    USING gin(name_tsvector);
 
 CREATE TABLE user_login(
     id UUID PRIMARY KEY DEFAULT uuid_generate_v1(),

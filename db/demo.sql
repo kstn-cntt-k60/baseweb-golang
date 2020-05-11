@@ -5,11 +5,14 @@ VALUES
     ('47aacbac-5c39-11ea-98a0-14dda9bea6d7', 2, 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7',
         'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
     ('c2e65572-5d18-11ea-a7e6-14dda9bea6d7', 1, 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7',
+        'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
+    ('514377ae-90dc-11ea-9357-40167e8ca7b6', 1, 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7',
         'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7');
 
 INSERT INTO person(id, first_name, middle_name, last_name, gender_id, birth_date)
 VALUES
-    ('c2e65572-5d18-11ea-a7e6-14dda9bea6d7', 'Tùng', 'Thanh', 'Cao', 1, '1997-1-1');
+    ('c2e65572-5d18-11ea-a7e6-14dda9bea6d7', 'Tùng', 'Thanh', 'Cao', 1, '1997-1-1'),
+    ('514377ae-90dc-11ea-9357-40167e8ca7b6', 'Dung', 'Trung', 'Hoang', 1, '1997-12-30');
 
 INSERT INTO customer(id, name)
 VALUES

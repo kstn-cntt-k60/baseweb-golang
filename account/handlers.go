@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"baseweb/basic"
 	"baseweb/security"
 
 	"github.com/google/uuid"
@@ -34,10 +35,11 @@ type AddPartyRequest struct {
 	CustomerName string `json:"customerName"`
 }
 
-func (root *Root) addPersonHandler(w http.ResponseWriter,
-	ctx context.Context,
-	tx *sqlx.Tx,
-	request AddPartyRequest, id uuid.UUID) error {
+func (root *Root) addPersonHandler(
+	w http.ResponseWriter,
+	ctx context.Context, tx *sqlx.Tx,
+	request AddPartyRequest, id uuid.UUID,
+) error {
 
 	p := Person{
 		Id:         id,
@@ -58,33 +60,14 @@ func (root *Root) addPersonHandler(w http.ResponseWriter,
 		return err
 	}
 
-	type Response struct {
-		Party  Party  `json:"party"`
-		Person Person `json:"person"`
-	}
-
-	party, err := root.repo.GetParty(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	person, err := root.repo.GetPerson(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	response := Response{
-		Party:  party,
-		Person: person,
-	}
-
-	return json.NewEncoder(w).Encode(response)
+	return basic.ReturnOk(w)
 }
 
-func (root *Root) addCustomerHandler(w http.ResponseWriter,
-	ctx context.Context,
-	tx *sqlx.Tx,
-	request AddPartyRequest, id uuid.UUID) error {
+func (root *Root) addCustomerHandler(
+	w http.ResponseWriter,
+	ctx context.Context, tx *sqlx.Tx,
+	request AddPartyRequest, id uuid.UUID,
+) error {
 
 	err := root.repo.InsertCustomer(ctx, tx, id, request.CustomerName)
 	if err != nil {
@@ -96,27 +79,7 @@ func (root *Root) addCustomerHandler(w http.ResponseWriter,
 		return err
 	}
 
-	type Response struct {
-		Party    Party    `json:"party"`
-		Customer Customer `json:"customer"`
-	}
-
-	party, err := root.repo.GetParty(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	customer, err := root.repo.GetCustomer(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	response := Response{
-		Party:    party,
-		Customer: customer,
-	}
-
-	return json.NewEncoder(w).Encode(response)
+	return basic.ReturnOk(w)
 }
 
 func (root *Root) AddPartyHandler(
@@ -159,21 +122,19 @@ func (root *Root) ViewPersonHandler(
 	ctx := r.Context()
 	var err error
 
-	queries := r.URL.Query()
+	query := r.URL.Query()
 
-	var page int
-	page, err = strconv.Atoi(queries.Get("page"))
+	page, err := strconv.Atoi(query.Get("page"))
 	if err != nil {
 		page = 0
 	}
 
-	var pageSize int
-	pageSize, err = strconv.Atoi(queries.Get("pageSize"))
+	pageSize, err := strconv.Atoi(query.Get("pageSize"))
 	if err != nil {
 		pageSize = 10
 	}
 
-	sortedByQuery := queries.Get("sortedBy")
+	sortedByQuery := query.Get("sortedBy")
 	sortedBy := "created_at"
 	if sortedByQuery == "firstName" {
 		sortedBy = "first_name"
@@ -185,7 +146,7 @@ func (root *Root) ViewPersonHandler(
 		sortedBy = "birth_date"
 	}
 
-	sortOrderQuery := queries.Get("sortOrder")
+	sortOrderQuery := query.Get("sortOrder")
 	sortOrder := "desc"
 	if sortOrderQuery == "desc" {
 		sortOrder = "desc"
@@ -193,8 +154,17 @@ func (root *Root) ViewPersonHandler(
 		sortOrder = "asc"
 	}
 
-	count, personList, err := root.repo.ViewPerson(
-		ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
+	searchText := query.Get("searchText")
+
+	var count uint
+	var personList []ClientPerson
+	if searchText == "" {
+		count, personList, err = root.repo.ViewPerson(
+			ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
+	} else {
+		count, personList, err = root.repo.ViewPersonWithFullName(
+			ctx, uint(page), uint(pageSize), sortedBy, sortOrder, searchText)
+	}
 	if err != nil {
 		return err
 	}
@@ -217,21 +187,21 @@ func (root *Root) ViewCustomerHandler(
 	ctx := r.Context()
 	var err error
 
-	queries := r.URL.Query()
+	query := r.URL.Query()
 
 	var page int
-	page, err = strconv.Atoi(queries.Get("page"))
+	page, err = strconv.Atoi(query.Get("page"))
 	if err != nil {
 		page = 0
 	}
 
 	var pageSize int
-	pageSize, err = strconv.Atoi(queries.Get("pageSize"))
+	pageSize, err = strconv.Atoi(query.Get("pageSize"))
 	if err != nil {
 		pageSize = 10
 	}
 
-	sortedByQuery := queries.Get("sortedBy")
+	sortedByQuery := query.Get("sortedBy")
 	sortedBy := "created_at"
 	if sortedByQuery == "name" {
 		sortedBy = "name"
@@ -241,7 +211,7 @@ func (root *Root) ViewCustomerHandler(
 		sortedBy = "updated_at"
 	}
 
-	sortOrderQuery := queries.Get("sortOrder")
+	sortOrderQuery := query.Get("sortOrder")
 	sortOrder := "desc"
 	if sortOrderQuery == "desc" {
 		sortOrder = "desc"
@@ -249,14 +219,26 @@ func (root *Root) ViewCustomerHandler(
 		sortOrder = "asc"
 	}
 
-	count, customerList, err := root.repo.ViewCustomer(
-		ctx, uint(page), uint(pageSize), sortedBy, sortOrder)
-	if err != nil {
-		return err
+	searchText := query.Get("searchText")
+
+	var count int
+	var customerList []ClientCustomer
+	if searchText == "" {
+		count, customerList, err = root.repo.ViewCustomer(
+			ctx, page, pageSize, sortedBy, sortOrder)
+		if err != nil {
+			return err
+		}
+	} else {
+		count, customerList, err = root.repo.ViewCustomerWithName(
+			ctx, page, pageSize, sortedBy, sortOrder, searchText)
+		if err != nil {
+			return err
+		}
 	}
 
 	type Response struct {
-		Count        uint             `json:"count"`
+		Count        int              `json:"count"`
 		CustomerList []ClientCustomer `json:"customerList"`
 	}
 
@@ -407,14 +389,13 @@ func (root *Root) QuerySimplePersonHandler(
 
 	ctx := r.Context()
 
-	query := r.URL.Query().Get("query")
-	personList, err := root.repo.SelectSimplePerson(ctx)
+	fullName := r.URL.Query().Get("query")
+	personList, err := root.repo.SelectSimplePersonWithFullName(ctx, fullName)
 	if err != nil {
 		return err
 	}
 
-	return json.NewEncoder(w).Encode(
-		FuzzySearchSimplePerson(personList, query))
+	return json.NewEncoder(w).Encode(personList)
 }
 
 func (root *Root) AddUserLogin(
