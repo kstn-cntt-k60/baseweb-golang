@@ -16,6 +16,7 @@ import (
 	importProduct "baseweb/import"
 	"baseweb/order"
 	"baseweb/product"
+	"baseweb/salesman"
 	"baseweb/salesroute"
 	"baseweb/security"
 
@@ -45,6 +46,8 @@ type Root struct {
 	export         *export.Root
 	salesrouteRepo *salesroute.Repo
 	salesroute     *salesroute.Root
+	salesman       *salesman.Root
+	salesmanRepo   *salesman.Repo
 }
 
 func UnwrapHandler(h basic.Handler) http.HandlerFunc {
@@ -133,6 +136,7 @@ func main() {
 	orderRepo := order.InitRepo(db)
 	exportRepo := export.InitRepo(db)
 	salesrouteRepo := salesroute.InitRepo(db)
+	salesmanRepo := salesman.InitRepo(db)
 
 	router := mux.NewRouter()
 
@@ -156,6 +160,8 @@ func main() {
 		export:         export.InitRoot(exportRepo),
 		salesrouteRepo: salesrouteRepo,
 		salesroute:     salesroute.InitRoot(salesrouteRepo),
+		salesmanRepo:   salesmanRepo,
+		salesman:       salesman.InitRoot(salesmanRepo),
 	}
 
 	root.GetAuthorized("/", "VIEW_EDIT_USER_LOGIN", root.homeHandler)
@@ -168,6 +174,7 @@ func main() {
 	OrderRoutes(root)
 	ExportRoutes(root)
 	SalesrouteRoutes(root)
+	SalesmanRoutes(root)
 
 	http.Handle("/", router)
 

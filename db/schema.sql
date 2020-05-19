@@ -439,7 +439,8 @@ CREATE TRIGGER sales_route_detail_updated_at BEFORE UPDATE ON
     sales_route_detail FOR EACH ROW EXECUTE PROCEDURE updated_at_column();
 
 CREATE TABLE salesman_checkin_history(
-    sales_route_detail_id INT PRIMARY KEY REFERENCES sales_route_detail(id),
+    id SERIAL PRIMARY KEY,
+    sales_route_detail_id INT NOT NULL REFERENCES sales_route_detail(id),
     checkin_time TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

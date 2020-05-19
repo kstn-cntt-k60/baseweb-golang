@@ -32,7 +32,8 @@ VALUES
     (4, 'FACILITY_MANAGER'),
     (5, 'INVENTORY_MANAGER'),
     (6, 'EXPORT_MANAGER'),
-    (7, 'SALESMAN_MANAGER');
+    (7, 'SALESMAN_MANAGER'),
+    (8, 'SALESMAN');
 
 
 INSERT INTO security_permission(id, name)
@@ -46,7 +47,8 @@ VALUES
     (7, 'VIEW_EDIT_FACILITY'),
     (8, 'IMPORT'),
     (9, 'EXPORT'),
-    (10, 'VIEW_EDIT_SALESMAN');
+    (10, 'VIEW_EDIT_SALESMAN'),
+    (11, 'SALESMAN_CHECKIN');
 
 
 INSERT INTO user_login_security_group(user_login_id, security_group_id)

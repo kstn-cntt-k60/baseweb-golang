@@ -95,9 +95,9 @@ VALUES
 
 INSERT INTO sales_route_planning_period (id, from_date, thru_date, created_by_user_login_id)
 VALUES
-    (1, '2020-12-17', '2020-12-30', 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
-    (2, '2020-12-17', '2021-5-6', 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
-    (3, '2020-12-17', '2020-12-30', '51074f18-5851-11ea-98c8-14dda9bea6d7');
+    (1, '2020-8-15', '2020-12-30', 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
+    (2, '2020-5-17', '2021-5-6', 'e66c1e0c-59fb-11ea-b26b-14dda9bea6d7'),
+    (3, '2020-5-18', '2020-12-30', '51074f18-5851-11ea-98c8-14dda9bea6d7');
 
 SELECT setval('sales_route_planning_period_id_seq', 3, true);
 
@@ -109,9 +109,11 @@ VALUES
 
 SELECT setval('sales_route_detail_id_seq', 3, true);
 
-INSERT INTO salesman_checkin_history(sales_route_detail_id)
+INSERT INTO salesman_checkin_history(id, sales_route_detail_id)
 VALUES
-    (1), (2), (3);
+    (1, 1), (2, 2), (3, 3);
+
+SELECT setval('salesman_checkin_history_id_seq', 3, true);
 
 
     
