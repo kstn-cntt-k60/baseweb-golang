@@ -31,7 +31,10 @@ VALUES
     (3, 'SALES_MANAGER'),
     (4, 'FACILITY_MANAGER'),
     (5, 'INVENTORY_MANAGER'),
-    (6, 'EXPORT_MANAGER');
+    (6, 'EXPORT_MANAGER'),
+    (7, 'SALESMAN_MANAGER'),
+    (8, 'SALESMAN');
+
 
 INSERT INTO security_permission(id, name)
 VALUES
@@ -43,7 +46,10 @@ VALUES
     (6, 'VIEW_EDIT_PRODUCT'),
     (7, 'VIEW_EDIT_FACILITY'),
     (8, 'IMPORT'),
-    (9, 'EXPORT');
+    (9, 'EXPORT'),
+    (10, 'VIEW_EDIT_SALESMAN'),
+    (11, 'SALESMAN_CHECKIN');
+
 
 INSERT INTO user_login_security_group(user_login_id, security_group_id)
 VALUES
@@ -52,7 +58,9 @@ VALUES
     ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 3),
     ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 4),
     ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 5),
-    ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 6);
+    ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 6),
+    ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 7);
+
 
 INSERT INTO security_group_permission(security_group_id, security_permission_id)
 VALUES
@@ -64,7 +72,8 @@ VALUES
     (3, 5),
     (4, 7),
     (5, 8),
-    (6, 9);
+    (6, 9),
+    (7, 10);
 
 
 INSERT INTO weight_uom(id)

@@ -16,6 +16,8 @@ import (
 	importProduct "baseweb/import"
 	"baseweb/order"
 	"baseweb/product"
+	"baseweb/salesman"
+	"baseweb/salesroute"
 	"baseweb/security"
 
 	"github.com/go-redis/redis/v7"
@@ -25,23 +27,27 @@ import (
 )
 
 type Root struct {
-	router        *mux.Router
-	db            *sqlx.DB
-	redisClient   *redis.Client
-	securityRepo  *security.Repo
-	security      *security.Root
-	accountRepo   *account.Repo
-	account       *account.Root
-	productRepo   *product.Repo
-	product       *product.Root
-	facilityRepo  *facility.Repo
-	facility      *facility.Root
-	importRepo    *importProduct.Repo
-	importProduct *importProduct.Root
-	orderRepo     *order.Repo
-	order         *order.Root
-	exportRepo    *export.Repo
-	export        *export.Root
+	router         *mux.Router
+	db             *sqlx.DB
+	redisClient    *redis.Client
+	securityRepo   *security.Repo
+	security       *security.Root
+	accountRepo    *account.Repo
+	account        *account.Root
+	productRepo    *product.Repo
+	product        *product.Root
+	facilityRepo   *facility.Repo
+	facility       *facility.Root
+	importRepo     *importProduct.Repo
+	importProduct  *importProduct.Root
+	orderRepo      *order.Repo
+	order          *order.Root
+	exportRepo     *export.Repo
+	export         *export.Root
+	salesrouteRepo *salesroute.Repo
+	salesroute     *salesroute.Root
+	salesman       *salesman.Root
+	salesmanRepo   *salesman.Repo
 }
 
 func UnwrapHandler(h basic.Handler) http.HandlerFunc {
@@ -129,27 +135,33 @@ func main() {
 	importRepo := importProduct.InitRepo(db)
 	orderRepo := order.InitRepo(db)
 	exportRepo := export.InitRepo(db)
+	salesrouteRepo := salesroute.InitRepo(db)
+	salesmanRepo := salesman.InitRepo(db)
 
 	router := mux.NewRouter()
 
 	root := &Root{
-		router:        router,
-		db:            db,
-		redisClient:   redisClient,
-		securityRepo:  securityRepo,
-		security:      security.InitRoot(securityRepo),
-		accountRepo:   accountRepo,
-		account:       account.InitRoot(accountRepo),
-		productRepo:   productRepo,
-		product:       product.InitRoot(productRepo),
-		facilityRepo:  facilityRepo,
-		facility:      facility.InitRoot(facilityRepo),
-		importRepo:    importRepo,
-		importProduct: importProduct.InitRoot(importRepo),
-		orderRepo:     orderRepo,
-		order:         order.InitRoot(orderRepo),
-		exportRepo:    exportRepo,
-		export:        export.InitRoot(exportRepo),
+		router:         router,
+		db:             db,
+		redisClient:    redisClient,
+		securityRepo:   securityRepo,
+		security:       security.InitRoot(securityRepo),
+		accountRepo:    accountRepo,
+		account:        account.InitRoot(accountRepo),
+		productRepo:    productRepo,
+		product:        product.InitRoot(productRepo),
+		facilityRepo:   facilityRepo,
+		facility:       facility.InitRoot(facilityRepo),
+		importRepo:     importRepo,
+		importProduct:  importProduct.InitRoot(importRepo),
+		orderRepo:      orderRepo,
+		order:          order.InitRoot(orderRepo),
+		exportRepo:     exportRepo,
+		export:         export.InitRoot(exportRepo),
+		salesrouteRepo: salesrouteRepo,
+		salesroute:     salesroute.InitRoot(salesrouteRepo),
+		salesmanRepo:   salesmanRepo,
+		salesman:       salesman.InitRoot(salesmanRepo),
 	}
 
 	root.GetAuthorized("/", "VIEW_EDIT_USER_LOGIN", root.homeHandler)
@@ -161,6 +173,8 @@ func main() {
 	ImportRoutes(root)
 	OrderRoutes(root)
 	ExportRoutes(root)
+	SalesrouteRoutes(root)
+	SalesmanRoutes(root)
 
 	http.Handle("/", router)
 
