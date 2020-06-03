@@ -285,7 +285,7 @@ func (repo *Repo) InsertCustomerStore(
 	ctx context.Context, store InsertStore) error {
 
 	log.Println("InsertCustomerStore", store.Name,
-		store.Address, store.CustomerId)
+		store.Address, store.CustomerId, store.Latitude, store.Longitude)
 
 	id, err := uuid.NewUUID()
 	if err != nil {
@@ -309,8 +309,8 @@ func (repo *Repo) InsertCustomerStore(
 	}
 
 	query = `insert into facility_customer(
-        id, customer_id)
-        values (:id, :customer_id)`
+        id, customer_id, latitude, longitude)
+        values (:id, :customer_id, :latitude, :longitude)`
 	_, err = tx.NamedExecContext(ctx, query, store)
 	if err != nil {
 		return err

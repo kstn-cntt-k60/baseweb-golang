@@ -36,17 +36,22 @@ func (repo *Repo) ViewSchedule(ctx context.Context,
 
 	query = `select srd.id, srd.config_id, c.repeat_week, 
 	string_agg(d."day"::text, ', ') as day_list, srd.planning_period_id as planning_id,  
-	pp.from_date, pp.thru_date, customer."name" as customer_name, u.username as salesman_name,
+	pp.from_date, pp.thru_date, u.username as salesman_name,
+	facility."name" as store_name,
+	facility.address, customer."name" as customer_name,
 	srd.created_at, srd.updated_at
 	from sales_route_detail srd
 	inner join sales_route_planning_period pp on srd.planning_period_id = pp.id
 	inner join sales_route_config c on srd.config_id = c.id
 	inner join sales_route_config_day d on d.config_id = c.id
-	inner join customer on srd.customer_id = customer.id
 	inner join salesman on srd.salesman_id = salesman.id
 	inner join user_login u on salesman.id = u.id
+	inner join facility_customer fc on fc.id = srd.customer_store_id
+	inner join customer customer on customer.id = fc.customer_id
+	inner join facility on facility.id = fc.id
 	where srd.salesman_id = ?
-	group by srd.id, c.repeat_week, customer."name", pp.from_date, pp.thru_date, u.username
+	group by srd.id, c.repeat_week,  u.username, pp.from_date, pp.thru_date, 
+	facility."name", facility.address, customer."name"
 	order by %s %s
 	limit ? offset ?`
 
@@ -128,13 +133,16 @@ func (repo *Repo) ViewCheckinHistory(ctx context.Context,
 
 	query = `select c.id, c.checkin_time, 
 	d.planning_period_id as planning_id, p.from_date, p.thru_date, 
+	facility."name" as store_name, facility.address, 
 	d.config_id, customer."name" as customer_name
 	from salesman_checkin_history c 
 	inner join sales_route_detail d on d.id=c.sales_route_detail_id
 	inner join sales_route_planning_period p on p.id = d.planning_period_id
-	inner join customer on customer.id = d.customer_id
+	inner join facility_customer fc on fc.id = d.customer_store_id
+	inner join facility on facility.id = fc.id
+	inner join customer on customer.id = fc.customer_id
 	inner join sales_route_config config on config.id = d.config_id
-	where d.salesman_id = ?
+	where d.salesman_id =  ?
 	order by %s %s
 	limit ? offset ?`
 

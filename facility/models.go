@@ -33,4 +33,6 @@ type InsertStore struct {
 	Name       string    `json:"name" db:"name"`
 	CustomerId string    `json:"customerId" db:"customer_id"`
 	Address    string    `json:"address" db:"address"`
+	Latitude   float32   `json:"latitude" db:"latitude"`
+	Longitude  float32   `json:"longitude" db:"longitude"`
 }

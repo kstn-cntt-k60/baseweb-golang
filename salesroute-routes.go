@@ -77,6 +77,11 @@ func SalesrouteRoutes(root *Root) {
 		root.salesroute.GetScheduleHandler)
 
 	root.GetAuthorized(
+		"/api/schedule/view-clustering",
+		"VIEW_EDIT_SALESMAN",
+		root.salesroute.ViewClusteringHandler)
+
+	root.GetAuthorized(
 		"/api/salesman/view-user-login",
 		"VIEW_EDIT_SALESMAN",
 		root.salesroute.ViewUserLoginHandler)

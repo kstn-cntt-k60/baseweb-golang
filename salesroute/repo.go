@@ -1,6 +1,7 @@
 package salesroute
 
 import (
+	"baseweb/kmeans"
 	"context"
 	"fmt"
 	"log"
@@ -338,19 +339,24 @@ func (repo *Repo) DeleteConfig(
 }
 
 func (repo *Repo) InsertSchedule(
-	ctx context.Context, planningId int, customerId uuid.UUID,
-	salesmanId uuid.UUID, configId int,
+	ctx context.Context, planningId int, salesmanId uuid.UUID,
+	customerStores []Store,
 ) error {
-	log.Println("InsertSchedule", planningId, customerId, salesmanId, configId)
+	log.Println("InsertSchedule", planningId, salesmanId, customerStores)
 
-	query := repo.db.Rebind(
-		`insert into sales_route_detail(
-        config_id, planning_period_id, customer_id, salesman_id)
-		values (?, ?, ?, ?)
-		`)
-	_, err := repo.db.ExecContext(ctx, query, configId, planningId, customerId, salesmanId)
+	for _, store := range customerStores {
+		query := repo.db.Rebind(
+			`insert into sales_route_detail(
+			config_id, planning_period_id, customer_store_id, salesman_id)
+			values (?, ?, ?, ?)
+			`)
+		_, err := repo.db.ExecContext(ctx, query, store.ConfigId, planningId, store.StoreId, salesmanId)
+		if err != nil {
+			return err
+		}
+	}
 
-	return err
+	return nil
 }
 
 func (repo *Repo) ViewSchedule(ctx context.Context,
@@ -369,16 +375,21 @@ func (repo *Repo) ViewSchedule(ctx context.Context,
 
 	query = `select srd.id, srd.config_id, c.repeat_week, 
 	string_agg(d."day"::text, ', ') as day_list, srd.planning_period_id as planning_id,  
-	pp.from_date, pp.thru_date, customer."name" as customer_name, u.username as salesman_name,
+	pp.from_date, pp.thru_date, u.username as salesman_name,
+	facility."name" as store_name,
+	facility.address, customer."name" as customer_name,
 	srd.created_at, srd.updated_at
 	from sales_route_detail srd
 	inner join sales_route_planning_period pp on srd.planning_period_id = pp.id
 	inner join sales_route_config c on srd.config_id = c.id
 	inner join sales_route_config_day d on d.config_id = c.id
-	inner join customer on srd.customer_id = customer.id
 	inner join salesman on srd.salesman_id = salesman.id
 	inner join user_login u on salesman.id = u.id
-	group by srd.id, c.repeat_week, customer."name", u.username, pp.from_date, pp.thru_date
+	inner join facility_customer fc on fc.id = srd.customer_store_id
+	inner join customer customer on customer.id = fc.customer_id
+	inner join facility on facility.id = fc.id
+	group by srd.id, c.repeat_week,  u.username, pp.from_date, pp.thru_date, 
+	facility."name", facility.address, customer."name"
 	order by %s %s
 	limit ? offset ?`
 
@@ -424,4 +435,53 @@ func (repo *Repo) GetSchedule(
 	err := repo.db.GetContext(ctx, &scheduleDetail, query, id)
 
 	return scheduleDetail, err
+}
+
+func (repo *Repo) ViewClustering(ctx context.Context, nCluster int,
+) ([]ClientNeighbor, error) {
+	log.Println("View CustomerStore Kmeans", nCluster)
+
+	result := make([]ClientNeighbor, 0)
+
+	type DBPoint struct {
+		Id           uuid.UUID `db:"id"`
+		StoreName    string    `db:"store_name"`
+		Address      string    `db:"address"`
+		CustomerName string    `db:"customer_name"`
+		Lat          float32   `db:"latitude"`
+		Long         float32   `db:"longitude"`
+	}
+
+	var dbPoints []DBPoint
+	query := `select f.id, f.name store_name, f.address, c."name" customer_name, 
+	fc.latitude, fc.longitude 
+	from facility as f, facility_customer as fc, 
+	customer as c
+	where f.id = fc.id
+	and fc.customer_id = c.id`
+	err := repo.db.SelectContext(ctx, &dbPoints, query)
+	if err != nil {
+		return result, err
+	}
+
+	points := make([]kmeans.Point, 0)
+	for _, p := range dbPoints {
+		points = append(points, kmeans.Point{Lat: p.Lat, Long: p.Long})
+	}
+
+	_, clusterCustomerStores := kmeans.Kmeans(points, nCluster)
+
+	for index, nb := range clusterCustomerStores {
+		result = append(result, ClientNeighbor{
+			Id: dbPoints[index].Id, Index: nb.Index,
+			StoreName:    dbPoints[index].StoreName,
+			Address:      dbPoints[index].Address,
+			CustomerName: dbPoints[index].CustomerName,
+			Lat:          nb.Point.Lat, Long: nb.Point.Long,
+		})
+	}
+
+	log.Println("COMPLETE", result)
+
+	return result, nil
 }

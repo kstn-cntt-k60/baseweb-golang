@@ -257,6 +257,8 @@ CREATE TRIGGER facility_warehouse_updated_at BEFORE UPDATE ON
 CREATE TABLE facility_customer(
     id UUID PRIMARY KEY REFERENCES facility(id),
     customer_id UUID NOT NULL REFERENCES customer(id),
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -426,13 +428,13 @@ CREATE TABLE sales_route_detail(
     id SERIAL PRIMARY KEY,
     config_id INT NOT NULL REFERENCES sales_route_config(id),
     planning_period_id INT NOT NULL REFERENCES sales_route_planning_period(id),
-    customer_id UUID NOT NULL REFERENCES customer(id),
+    customer_store_id UUID NOT NULL REFERENCES facility_customer(id),
     salesman_id UUID NOT NULL REFERENCES salesman(id),
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    CONSTRAINT u_sales_route_detail UNIQUE (planning_period_id, customer_id, salesman_id)
+    CONSTRAINT u_sales_route_detail UNIQUE (planning_period_id, customer_store_id, salesman_id)
 );
 
 CREATE TRIGGER sales_route_detail_updated_at BEFORE UPDATE ON
