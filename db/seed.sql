@@ -59,7 +59,8 @@ VALUES
     ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 4),
     ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 5),
     ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 6),
-    ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 7);
+    ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 7),
+    ('e66c1e0c-59fb-11ea-b26b-14dda9bea6d7', 8);
 
 
 INSERT INTO security_group_permission(security_group_id, security_permission_id)
@@ -73,7 +74,8 @@ VALUES
     (4, 7),
     (5, 8),
     (6, 9),
-    (7, 10);
+    (7, 10),
+    (8, 11);
 
 
 INSERT INTO weight_uom(id)

@@ -69,15 +69,17 @@ type ClientSalesRouteConfig struct {
 type ClientSchedule struct {
 	Id           int       `json:"id" db:"id"`
 	PlanningId   int       `json:"planningId" db:"planning_id"`
-	CustomerName string    `json:"customerName" db:"customer_name"`
-	SalesmanName string    `json:"salesmanName" db:"salesman_name"`
-	ConfigId     int       `json:"configId" db:"config_id"`
-	CreatedAt    time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt    time.Time `json:"updatedAt" db:"updated_at"`
 	FromDate     time.Time `json:"fromDate" db:"from_date"`
 	ThruDate     time.Time `json:"thruDate" db:"thru_date"`
+	ConfigId     int       `json:"configId" db:"config_id"`
 	RepeatWeek   int       `json:"repeatWeek" db:"repeat_week"`
 	DayList      string    `json:"dayList" db:"day_list"`
+	SalesmanName string    `json:"salesmanName" db:"salesman_name"`
+	StoreName    string    `json:"storeName" db:"store_name"`
+	Address      string    `json:"address" db:"address"`
+	CustomerName string    `json:"customerName" db:"customer_name"`
+	CreatedAt    time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt    time.Time `json:"updatedAt" db:"updated_at"`
 }
 
 type ScheduleDetail struct {
@@ -92,4 +94,19 @@ type ScheduleDetail struct {
 	ConfigId     int       `json:"configId" db:"config_id"`
 	RepeatWeek   int       `json:"repeatWeek" db:"repeat_week"`
 	DayList      string    `json:"dayList" db:"day_list"`
+}
+
+type ClientNeighbor struct {
+	Id           uuid.UUID `json:"id"`
+	StoreName    string    `json:"storeName"`
+	Address      string    `json:"address"`
+	CustomerName string    `json:"customerName"`
+	Index        int       `json:"index"`
+	Lat          float32   `json:"lat"`
+	Long         float32   `json:"long"`
+}
+
+type Store struct {
+	StoreId  uuid.UUID `json:"customerStoreId"`
+	ConfigId int       `json:"configId"`
 }

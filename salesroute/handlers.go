@@ -366,10 +366,9 @@ func (root *Root) AddScheduleHandler(
 	ctx := r.Context()
 
 	type Request struct {
-		PlanningId int       `json:"planningId"`
-		CustomerId uuid.UUID `json:"customerId"`
-		SalesmanId uuid.UUID `json:"salesmanId"`
-		ConfigId   int       `json:"configId"`
+		PlanningId     int       `json:"planningId"`
+		SalesmanId     uuid.UUID `json:"salesmanId"`
+		CustomerStores []Store   `json:"customerStores"`
 	}
 
 	req := Request{}
@@ -378,7 +377,10 @@ func (root *Root) AddScheduleHandler(
 		return err
 	}
 
-	err = root.repo.InsertSchedule(ctx, req.PlanningId, req.CustomerId, req.SalesmanId, req.ConfigId)
+	if len(req.CustomerStores) == 0 {
+		return errors.New("Empty Customer Stores")
+	}
+	err = root.repo.InsertSchedule(ctx, req.PlanningId, req.SalesmanId, req.CustomerStores)
 	if err != nil {
 		return err
 	}
@@ -550,4 +552,25 @@ func (root *Root) DeleteSalesmanHandler(
 	}
 
 	return json.NewEncoder(w).Encode(okResponse)
+}
+
+func (root *Root) ViewClusteringHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+	query := r.URL.Query()
+
+	var err error
+	var nCluster int
+	nCluster, err = strconv.Atoi(query.Get("nCluster"))
+	if err != nil {
+		return err
+	}
+
+	list, err := root.repo.ViewClustering(ctx, nCluster)
+	if err != nil {
+		return err
+	}
+
+	return json.NewEncoder(w).Encode(list)
 }

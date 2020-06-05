@@ -38,16 +38,16 @@ INSERT INTO facility(id, name, facility_type_id, address)
 VALUES
     ('28fb8f4a-5a02-11ea-b26e-14dda9bea6d7', 'warehouse', 1, 'Ha Noi'),
     ('3e5b7814-5a02-11ea-b26f-14dda9bea6d7', 'test customer facility 1', 2, 'Ha Noi'),
-    ('c0721b28-5a02-11ea-b272-14dda9bea6d7', 'test customer facility 2', 2, 'Ha Noi');
+    ('c0721b28-5a02-11ea-b272-14dda9bea6d7', 'test customer facility 2', 2, 'Hai Duong');
 
 INSERT INTO facility_warehouse(id)
 VALUES
     ('28fb8f4a-5a02-11ea-b26e-14dda9bea6d7');
 
-INSERT INTO facility_customer(id, customer_id)
+INSERT INTO facility_customer(id, customer_id, latitude, longitude)
 VALUES
-    ('3e5b7814-5a02-11ea-b26f-14dda9bea6d7', '164f0e68-5a01-11ea-b26d-14dda9bea6d7'),
-    ('c0721b28-5a02-11ea-b272-14dda9bea6d7', '47aacbac-5c39-11ea-98a0-14dda9bea6d7');
+    ('3e5b7814-5a02-11ea-b26f-14dda9bea6d7', '164f0e68-5a01-11ea-b26d-14dda9bea6d7', 21.027763, 105.834160),
+    ('c0721b28-5a02-11ea-b272-14dda9bea6d7', '47aacbac-5c39-11ea-98a0-14dda9bea6d7', 20.940109, 106.333076);
 
 INSERT INTO product(id, name, created_by_user_login_id, unit_uom_id)
 VALUES
@@ -101,11 +101,11 @@ VALUES
 
 SELECT setval('sales_route_planning_period_id_seq', 3, true);
 
-INSERT INTO sales_route_detail (id, planning_period_id, config_id, customer_id, salesman_id)
+INSERT INTO sales_route_detail (id, planning_period_id, config_id, customer_store_id, salesman_id)
 VALUES
-    (1, 1, 1, '164f0e68-5a01-11ea-b26d-14dda9bea6d7', '51074f18-5851-11ea-98c8-14dda9bea6d7'),
-    (2, 2, 2, '164f0e68-5a01-11ea-b26d-14dda9bea6d7', 'c618b8fc-5872-11ea-adab-14dda9bea6d7'),
-    (3, 2, 2, '47aacbac-5c39-11ea-98a0-14dda9bea6d7', 'c618b8fc-5872-11ea-adab-14dda9bea6d7');
+    (1, 1, 1, '3e5b7814-5a02-11ea-b26f-14dda9bea6d7', '51074f18-5851-11ea-98c8-14dda9bea6d7'),
+    (2, 2, 2, '3e5b7814-5a02-11ea-b26f-14dda9bea6d7', 'c618b8fc-5872-11ea-adab-14dda9bea6d7'),
+    (3, 2, 2, 'c0721b28-5a02-11ea-b272-14dda9bea6d7', 'c618b8fc-5872-11ea-adab-14dda9bea6d7');
 
 SELECT setval('sales_route_detail_id_seq', 3, true);
 
