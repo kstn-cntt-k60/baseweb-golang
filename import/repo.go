@@ -179,8 +179,9 @@ func (repo *Repo) ViewInventoryItemByWarehouse(
 	var count int
 	result := make([]InventoryItem, 0)
 
-	query := `select count(*) from inventory_item where warehouse_id = ?`
-	query = repo.db.Rebind(query)
+	query := repo.db.Rebind(
+		`select coalesce(sum(inventory_item_count), 0)
+        from warehouse_product_statistics where warehouse_id = ?`)
 	err := repo.db.GetContext(ctx, &count, query, warehouseId)
 	if err != nil {
 		return count, result, err
