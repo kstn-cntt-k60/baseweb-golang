@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"baseweb/account"
@@ -119,12 +120,39 @@ func (root *Root) homeHandler(w http.ResponseWriter, r *http.Request) error {
 }
 
 func main() {
-	config := "user=postgres password=1 dbname=baseweb sslmode=disable"
+	psqlHost := os.Getenv("PSQL_HOST")
+	if psqlHost == "" {
+		psqlHost = "localhost"
+	}
+
+	psqlUser := os.Getenv("PSQL_USER")
+	if psqlUser == "" {
+		psqlUser = "postgres"
+	}
+
+	psqlPasswd := os.Getenv("PSQL_PASSWD")
+	if psqlPasswd == "" {
+		psqlPasswd = "1"
+	}
+
+	psqlSsl := os.Getenv("PSQL_SSL")
+	if psqlSsl == "" {
+		psqlSsl = "disable"
+	}
+
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+
+	config := fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=baseweb sslmode=%s",
+		psqlHost, psqlUser, psqlPasswd, psqlSsl)
 	db := sqlx.MustConnect("postgres", config)
 	defer db.Close()
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: fmt.Sprintf("%s:6379", redisHost),
 		DB:   0,
 	})
 

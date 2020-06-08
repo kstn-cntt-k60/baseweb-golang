@@ -2,8 +2,10 @@ package importProduct
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -113,6 +115,8 @@ func (root *Root) AddInventoryItemHandler(
 func (root *Root) ViewInventoryByWarehouseHandler(
 	w http.ResponseWriter, r *http.Request) error {
 
+	start := time.Now()
+
 	ctx := r.Context()
 
 	query := r.URL.Query()
@@ -163,6 +167,8 @@ func (root *Root) ViewInventoryByWarehouseHandler(
 		InventoryCount: count,
 		InventoryList:  items,
 	}
+
+	log.Println("TIME", time.Now().Sub(start).Microseconds())
 
 	return json.NewEncoder(w).Encode(res)
 
