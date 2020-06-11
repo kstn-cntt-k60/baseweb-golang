@@ -239,7 +239,7 @@ func (repo *Repo) ViewCustomerWithName(ctx context.Context,
 
 	query := repo.db.Rebind(`
         select count(*) from customer
-        where name_tsvector @@ plainto_tsquery(?)
+        where name_tsvector @@ plainto_tsquery(vn_unaccent(?))
         `)
 	err := repo.db.GetContext(ctx, &count, query, searchText)
 	if err != nil {
@@ -251,7 +251,7 @@ func (repo *Repo) ViewCustomerWithName(ctx context.Context,
         p.description
         from customer c
         inner join party p on p.id = c.id
-        where name_tsvector @@ plainto_tsquery(?)
+        where name_tsvector @@ plainto_tsquery(vn_unaccent(?))
         order by c.%s %s
         limit ? offset ?`
 	query = fmt.Sprintf(query, sortedBy, sortOrder)
