@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -170,6 +171,8 @@ func (repo *Repo) ViewInventoryItemByWarehouse(
 	page, pageSize int,
 	sortedBy, sortOrder string) (int, []InventoryItem, error) {
 
+	start := time.Now()
+
 	log.Println("ViewInventoryItemByWarehouse", warehouseId,
 		page, pageSize, sortedBy, sortOrder)
 
@@ -199,6 +202,8 @@ func (repo *Repo) ViewInventoryItemByWarehouse(
 
 	err = repo.db.SelectContext(ctx, &result, query,
 		warehouseId, pageSize, page*pageSize)
+
+	log.Println("TIME REPO", time.Now().Sub(start).Microseconds())
 
 	return count, result, err
 }
