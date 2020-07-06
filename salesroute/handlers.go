@@ -4,6 +4,7 @@ import (
 	"baseweb/security"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -86,7 +87,18 @@ func (root *Root) ViewSalesmanHandler(
 		sortOrder = "asc"
 	}
 
-	count, list, err := root.repo.ViewSalesman(ctx, sortedBy, sortOrder, page, pageSize)
+	searchText := query.Get("searchText")
+
+	var count int
+	var list []ClientSalesman
+
+	if searchText == "" {
+		count, list, err = root.repo.ViewSalesman(
+			ctx, sortedBy, sortOrder, page, pageSize)
+	} else {
+		count, list, err = root.repo.ViewSalesmanWithFullName(
+			ctx, sortedBy, sortOrder, page, pageSize, searchText)
+	}
 	if err != nil {
 		return err
 	}
@@ -562,15 +574,74 @@ func (root *Root) ViewClusteringHandler(
 
 	var err error
 	var nCluster int
+	var city string
 	nCluster, err = strconv.Atoi(query.Get("nCluster"))
 	if err != nil {
 		return err
 	}
 
-	list, err := root.repo.ViewClustering(ctx, nCluster)
+	city = query.Get("city")
+
+	list, err := root.repo.ViewClustering(ctx, nCluster, city)
 	if err != nil {
 		return err
 	}
 
 	return json.NewEncoder(w).Encode(list)
+}
+
+func (root *Root) ViewStoreOfSalesmanHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+	vars := mux.Vars(r)
+
+	var err error
+
+	var salesmanId uuid.UUID
+	salesmanId, err = uuid.Parse(vars["salesmanId"])
+
+	if err != nil {
+		return err
+	}
+
+	log.Println("salesmanId", salesmanId)
+
+	listStore, err := root.repo.ViewStoreOfSalesman(ctx, salesmanId)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		Store []StoreOfSalesman `json:"listStore"`
+	}
+
+	res := Response{
+		Store: listStore,
+	}
+
+	return json.NewEncoder(w).Encode(res)
+}
+
+func (root *Root) GetPairStoreSalesmanHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	log.Println("GetPairStoreSalesman")
+
+	listPair, err := root.repo.GetPairStoreSalesman(ctx)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		Pair []PairStoreSalesmanId `json:"pairStoreSalesman"`
+	}
+
+	res := Response{
+		Pair: listPair,
+	}
+
+	return json.NewEncoder(w).Encode(res)
 }

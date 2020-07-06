@@ -301,3 +301,24 @@ func (root *Root) GetWarehouseHandler(
 
 	return json.NewEncoder(w).Encode(warehouse)
 }
+
+func (root *Root) ViewAllCustomerStoreHandler(
+	w http.ResponseWriter, r *http.Request) error {
+
+	ctx := r.Context()
+
+	listAllStore, err := root.repo.ViewAllCustomerStore(ctx)
+	if err != nil {
+		return err
+	}
+
+	type Response struct {
+		AllCustomerStore []CustomerStore `json:"listAllStore"`
+	}
+
+	res := Response{
+		AllCustomerStore: listAllStore,
+	}
+
+	return json.NewEncoder(w).Encode(res)
+}

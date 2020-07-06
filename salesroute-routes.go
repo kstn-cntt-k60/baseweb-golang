@@ -90,4 +90,14 @@ func SalesrouteRoutes(root *Root) {
 		"/api/sales-route/delete-salesman",
 		"VIEW_EDIT_SALESMAN",
 		root.salesroute.DeleteSalesmanHandler)
+
+	root.GetAuthorized(
+		"/api/sales-route/get-store-of-salesman/{salesmanId}",
+		"VIEW_EDIT_SALESMAN",
+		root.salesroute.ViewStoreOfSalesmanHandler)
+
+	root.GetAuthorized(
+		"/api/sales-route/get-pair-store-salesman",
+		"VIEW_EDIT_SALESMAN",
+		root.salesroute.GetPairStoreSalesmanHandler)
 }

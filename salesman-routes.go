@@ -15,4 +15,5 @@ func SalesmanRoutes(root *Root) {
 		"/api/salesman/add-checkin",
 		"SALESMAN_CHECKIN",
 		root.salesman.AddCheckinHandler)
+
 }

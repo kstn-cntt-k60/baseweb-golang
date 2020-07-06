@@ -22,12 +22,29 @@ func InitRepo(db *sqlx.DB) *Repo {
 
 func (repo *Repo) InsertSalesman(ctx context.Context, salesman Salesman) error {
 	log.Println("InsertSalesman", salesman.Id, salesman.CreatedBy)
+	tx, err := repo.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 
 	query := `insert into salesman(id, created_by_user_login_id)
 	values (:id, :created_by_user_login_id)`
 
-	_, err := repo.db.NamedExecContext(ctx, query, salesman)
-	return err
+	_, err = tx.NamedExecContext(ctx, query, salesman)
+	if err != nil {
+		return err
+	}
+
+	query = `insert into user_login_security_group(user_login_id, security_group_id)
+	values (?, 8)`
+	query = repo.db.Rebind(query)
+	_, err = tx.ExecContext(ctx, query, salesman.Id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (repo *Repo) ViewSalesman(ctx context.Context,
@@ -44,18 +61,60 @@ func (repo *Repo) ViewSalesman(ctx context.Context,
 		return count, result, err
 	}
 
-	query = `select s.id, u1.username,
+	query = `select s.id, u1.username, 
+	p.last_name || ' ' || p.middle_name || ' ' || p.first_name as salesman_name,
 	u2.username as created_by,
 	s.created_at, s.updated_at
 	from salesman s
 	inner join user_login u1 on u1.id = s.id
 	inner join user_login u2 on u2.id = s.created_by_user_login_id
+	inner join person p on p.id = u1.person_id
 	order by %s %s
 	limit ? offset ?`
 
 	query = fmt.Sprintf(query, sortedBy, sortOrder)
 	query = repo.db.Rebind(query)
 	err = repo.db.SelectContext(ctx, &result, query, pageSize, page*pageSize)
+	return count, result, err
+}
+
+func (repo *Repo) ViewSalesmanWithFullName(ctx context.Context,
+	sortedBy, sortOrder string, page, pageSize int,
+	fullName string,
+) (int, []ClientSalesman, error) {
+
+	log.Println("ViewSalesman", page, pageSize,
+		sortedBy, sortOrder, fullName)
+
+	var count int = 0
+	result := make([]ClientSalesman, 0)
+
+	query := repo.db.Rebind(`
+        select count(*) from salesman s, person p, user_login ul
+        where p.id = ul.person_id and s.id = ul.id and full_name_tsvector @@ plainto_tsquery(vn_unaccent(?))
+        `)
+	err := repo.db.GetContext(ctx, &count, query, fullName)
+	if err != nil {
+		return count, result, err
+	}
+
+	query = `	select s.id, u1.username, 
+	p.last_name || ' ' || p.middle_name || ' ' || p.first_name as salesman_name,
+	u2.username as created_by,
+	s.created_at, s.updated_at
+	from salesman s
+	inner join user_login u1 on u1.id = s.id
+	inner join user_login u2 on u2.id = s.created_by_user_login_id
+	inner join person p on p.id = u1.person_id
+	where p.full_name_tsvector @@ plainto_tsquery(vn_unaccent(?))
+	order by %s %s
+	limit ? offset ?`
+	query = fmt.Sprintf(query, sortedBy, sortOrder)
+	query = repo.db.Rebind(query)
+
+	err = repo.db.SelectContext(ctx, &result,
+		repo.db.Rebind(query), fullName, pageSize, page*pageSize)
+
 	return count, result, err
 }
 
@@ -375,7 +434,7 @@ func (repo *Repo) ViewSchedule(ctx context.Context,
 
 	query = `select srd.id, srd.config_id, c.repeat_week, 
 	string_agg(d."day"::text, ', ') as day_list, srd.planning_period_id as planning_id,  
-	pp.from_date, pp.thru_date, u.username as salesman_name,
+	pp.from_date, pp.thru_date, p.last_name || ' ' || p.middle_name || ' ' || p.first_name as salesman_name,
 	facility."name" as store_name,
 	facility.address, customer."name" as customer_name,
 	srd.created_at, srd.updated_at
@@ -388,7 +447,9 @@ func (repo *Repo) ViewSchedule(ctx context.Context,
 	inner join facility_customer fc on fc.id = srd.customer_store_id
 	inner join customer customer on customer.id = fc.customer_id
 	inner join facility on facility.id = fc.id
-	group by srd.id, c.repeat_week,  u.username, pp.from_date, pp.thru_date, 
+	inner join person p on p.id = u.person_id
+	group by srd.id, c.repeat_week,  u.username, pp.from_date, pp.thru_date, p.last_name,
+	p.middle_name, p.first_name, 
 	facility."name", facility.address, customer."name"
 	order by %s %s
 	limit ? offset ?`
@@ -404,10 +465,28 @@ func (repo *Repo) DeleteSchedule(
 
 	log.Println("DeleteSchedule", id)
 
-	query := "delete from sales_route_detail where id = ?"
+	tx, err := repo.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	query := `delete from salesman_checkin_history
+		where sales_route_detail_id = ?`
 	query = repo.db.Rebind(query)
-	_, err := repo.db.ExecContext(ctx, query, id)
-	return err
+	_, err = tx.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	query = "delete from sales_route_detail where id = ?"
+	query = repo.db.Rebind(query)
+	_, err = tx.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (repo *Repo) GetSchedule(
@@ -437,11 +516,16 @@ func (repo *Repo) GetSchedule(
 	return scheduleDetail, err
 }
 
-func (repo *Repo) ViewClustering(ctx context.Context, nCluster int,
+func (repo *Repo) ViewClustering(ctx context.Context, nCluster int, city string,
 ) ([]ClientNeighbor, error) {
 	log.Println("View CustomerStore Kmeans", nCluster)
 
 	result := make([]ClientNeighbor, 0)
+	if city == "hanoi" {
+		city = "%Hà Nội%"
+	} else if city == "hcm" {
+		city = "%Hồ Chí Minh%"
+	}
 
 	type DBPoint struct {
 		Id           uuid.UUID `db:"id"`
@@ -453,15 +537,30 @@ func (repo *Repo) ViewClustering(ctx context.Context, nCluster int,
 	}
 
 	var dbPoints []DBPoint
-	query := `select f.id, f.name store_name, f.address, c."name" customer_name, 
+
+	if city == "" {
+		query := `select f.id, f.name store_name, f.address, c."name" customer_name, 
 	fc.latitude, fc.longitude 
 	from facility as f, facility_customer as fc, 
 	customer as c
 	where f.id = fc.id
 	and fc.customer_id = c.id`
-	err := repo.db.SelectContext(ctx, &dbPoints, query)
-	if err != nil {
-		return result, err
+		err := repo.db.SelectContext(ctx, &dbPoints, query)
+		if err != nil {
+			return result, err
+		}
+	} else {
+		query := `select f.id, f.name store_name, f.address, c."name" customer_name, 
+	fc.latitude, fc.longitude 
+	from facility as f, facility_customer as fc, 
+	customer as c
+	where f.id = fc.id
+	and fc.customer_id = c.id and f.address like ?`
+		query = repo.db.Rebind(query)
+		err := repo.db.SelectContext(ctx, &dbPoints, query, city)
+		if err != nil {
+			return result, err
+		}
 	}
 
 	points := make([]kmeans.Point, 0)
@@ -484,4 +583,37 @@ func (repo *Repo) ViewClustering(ctx context.Context, nCluster int,
 	log.Println("COMPLETE", result)
 
 	return result, nil
+}
+
+func (repo *Repo) ViewStoreOfSalesman(ctx context.Context, salesmanId uuid.UUID,
+) ([]StoreOfSalesman, error) {
+	log.Println("ViewStoreOfSalesman", salesmanId)
+
+	result := make([]StoreOfSalesman, 0)
+
+	query := `select srd.customer_store_id, fc.latitude, fc.longitude, 
+		f.name as customer_store_name, c.name as customer_name
+		from sales_route_detail srd, facility_customer fc, facility f, customer c
+		where srd.customer_store_id = fc.id and f.id = fc.id 
+		and c.id = fc.customer_id and 
+		srd.salesman_id = ?`
+
+	query = fmt.Sprintf(query)
+	query = repo.db.Rebind(query)
+	err := repo.db.SelectContext(ctx, &result, query, salesmanId)
+	return result, err
+}
+
+func (repo *Repo) GetPairStoreSalesman(ctx context.Context,
+) ([]PairStoreSalesmanId, error) {
+	log.Println("GetPairStoreSalesman")
+
+	result := make([]PairStoreSalesmanId, 0)
+
+	query := `select srd.customer_store_id, srd.salesman_id from sales_route_detail srd `
+
+	query = fmt.Sprintf(query)
+	query = repo.db.Rebind(query)
+	err := repo.db.SelectContext(ctx, &result, query)
+	return result, err
 }

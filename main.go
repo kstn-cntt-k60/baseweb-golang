@@ -19,6 +19,7 @@ import (
 	"baseweb/product"
 	"baseweb/salesman"
 	"baseweb/salesroute"
+	"baseweb/schedule"
 	"baseweb/security"
 
 	"github.com/go-redis/redis/v7"
@@ -49,6 +50,8 @@ type Root struct {
 	salesroute     *salesroute.Root
 	salesman       *salesman.Root
 	salesmanRepo   *salesman.Repo
+	schedule       *schedule.Root
+	scheduleRepo   *schedule.Repo
 }
 
 func UnwrapHandler(h basic.Handler) http.HandlerFunc {
@@ -165,6 +168,7 @@ func main() {
 	exportRepo := export.InitRepo(db)
 	salesrouteRepo := salesroute.InitRepo(db)
 	salesmanRepo := salesman.InitRepo(db)
+	scheduleRepo := schedule.InitRepo(db)
 
 	router := mux.NewRouter()
 
@@ -190,6 +194,8 @@ func main() {
 		salesroute:     salesroute.InitRoot(salesrouteRepo),
 		salesmanRepo:   salesmanRepo,
 		salesman:       salesman.InitRoot(salesmanRepo),
+		scheduleRepo:   scheduleRepo,
+		schedule:       schedule.InitRoot(scheduleRepo),
 	}
 
 	root.GetAuthorized("/", "VIEW_EDIT_USER_LOGIN", root.homeHandler)
@@ -203,6 +209,7 @@ func main() {
 	ExportRoutes(root)
 	SalesrouteRoutes(root)
 	SalesmanRoutes(root)
+	ScheduleRoutes(root)
 
 	http.Handle("/", router)
 
