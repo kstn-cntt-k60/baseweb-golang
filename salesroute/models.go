@@ -14,11 +14,12 @@ type Salesman struct {
 }
 
 type ClientSalesman struct {
-	Id        uuid.UUID `json:"id" db:"id"`
-	Username  string    `json:"username" db:"username"`
-	CreatedBy string    `json:"createdBy" db:"created_by"`
-	CreatedAt time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
+	Id           uuid.UUID `json:"id" db:"id"`
+	Username     string    `json:"username" db:"username"`
+	SalesmanName string    `json:"salesmanName" db:"salesman_name"`
+	CreatedBy    string    `json:"createdBy" db:"created_by"`
+	CreatedAt    time.Time `json:"createdAt" db:"created_at"`
+	UpdatedAt    time.Time `json:"updatedAt" db:"updated_at"`
 }
 
 type ClientUserLogin struct {
@@ -109,4 +110,17 @@ type ClientNeighbor struct {
 type Store struct {
 	StoreId  uuid.UUID `json:"customerStoreId"`
 	ConfigId int       `json:"configId"`
+}
+
+type StoreOfSalesman struct {
+	Id           uuid.UUID `json:"id" db:"customer_store_id"`
+	Latitude     float32   `json:"latitude" db:"latitude"`
+	Longitude    float32   `json:"longitude" db:"longitude"`
+	StoreName    string    `json:"customerStoreName" db:"customer_store_name"`
+	CustomerName string    `json:"customerName" db:"customer_name"`
+}
+
+type PairStoreSalesmanId struct {
+	StoreId    uuid.UUID `json:"customerStoreId" db:"customer_store_id"`
+	SalesmanId uuid.UUID `json:"salesmanId" db:"salesman_id"`
 }

@@ -50,4 +50,9 @@ func FacilityRoutes(root *Root) {
 		"/api/facility/delete-customer-store",
 		"VIEW_EDIT_FACILITY",
 		root.facility.DeleteCustomerStoreHandler)
+
+	root.GetAuthorized(
+		"/api/facility/view-all-customer-store",
+		"VIEW_EDIT_FACILITY",
+		root.facility.ViewAllCustomerStoreHandler)
 }

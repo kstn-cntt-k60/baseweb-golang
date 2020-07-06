@@ -19,6 +19,8 @@ type CustomerStore struct {
 	Name      string    `json:"name" db:"name"`
 	Customer  string    `json:"customer" db:"customer_name"`
 	Address   string    `json:"address" db:"address"`
+	Latitude  float32   `json:"latitude" db:"latitude"`
+	Longitude float32   `json:"longitude" db:"longitude"`
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 }

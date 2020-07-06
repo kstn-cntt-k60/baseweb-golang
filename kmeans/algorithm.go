@@ -2,7 +2,9 @@ package kmeans
 
 import (
 	"fmt"
+	"log"
 	"math"
+	"math/rand"
 )
 
 type Point struct {
@@ -21,8 +23,18 @@ func randomCenterPoints(points []Point, n int) []Point {
 
 	result := make([]Point, n)
 
+	copy := make([]Point, 0)
+	for _, p := range points {
+		copy = append(copy, p)
+	}
+
+	// rand.Seed(1000)
+	rand.Shuffle(len(copy), func(i, j int) {
+		copy[i], copy[j] = copy[j], copy[i]
+	})
+
 	for i := 0; i < n; i++ {
-		result[i] = points[i]
+		result[i] = copy[i]
 	}
 
 	return result
@@ -49,6 +61,11 @@ func distance(a, b Point) float32 {
 	ans = 2 * math.Asin(math.Sqrt(ans))
 	var R float64 = 6371.0
 	ans = ans * R
+	return float32(ans)
+}
+
+func distance2(a, b Point) float32 {
+	ans := math.Pow(float64(a.Lat-b.Lat), 2) + math.Pow(float64(a.Long-b.Long), 2)
 	return float32(ans)
 }
 
@@ -98,7 +115,9 @@ func kmeansStep(points []Point, centerPoints []Point) []Point {
 				count++
 			}
 		}
-		result[i] = Point{Lat: sum.Lat / float32(count), Long: sum.Long / float32(count)}
+		if count != 0 {
+			result[i] = Point{Lat: sum.Lat / float32(count), Long: sum.Long / float32(count)}
+		}
 	}
 
 	fmt.Println("STEP", result)
@@ -132,13 +151,16 @@ func pointsEqual(a, b []Point) bool {
 func Kmeans(points []Point, n int) ([]Point, []Neighbor) {
 	centerPoints := randomCenterPoints(points, n)
 
+	count := 0
 	for {
+		count++
 		newCenters := kmeansStep(points, centerPoints)
-		if pointsEqual(newCenters, centerPoints) {
+		if count >= 100 || pointsEqual(newCenters, centerPoints) {
 			break
 		}
 		centerPoints = newCenters
 	}
+	log.Println(count)
 
 	return centerPoints, collectNeighbors(points, centerPoints)
 }

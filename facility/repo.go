@@ -55,6 +55,7 @@ func InitRepo(db *sqlx.DB) *Repo {
 	}
 
 	query = `select f.id, f.name, f.address,
+		fc.latitude, fc.longitude,
         c.name as customer_name,
         f.created_at, f.updated_at
         from facility f 
@@ -237,6 +238,7 @@ func (repo *Repo) ViewCustomerStore(
 	} else {
 
 		query := `select f.id, f.name, f.address,
+			fc.latitude, fc.longitude,
             c.name as customer_name,
             f.created_at, f.updated_at
             from facility f 
@@ -377,4 +379,23 @@ func (repo *Repo) GetWarehouse(
 	err := repo.db.GetContext(ctx, &warehouse, query, id)
 
 	return warehouse, err
+}
+
+func (repo *Repo) ViewAllCustomerStore(ctx context.Context) ([]CustomerStore, error) {
+	log.Println("ViewAllCustomerStore")
+
+	result := make([]CustomerStore, 0)
+
+	query := `select f.id, f.name, f.address,
+	fc.latitude, fc.longitude,
+	c.name as customer_name,
+	f.created_at, f.updated_at
+	from facility f 
+	inner join facility_customer fc on fc.id = f.id
+	inner join customer c on c.id = fc.customer_id`
+
+	query = fmt.Sprintf(query)
+	query = repo.db.Rebind(query)
+	err := repo.db.SelectContext(ctx, &result, query)
+	return result, err
 }
